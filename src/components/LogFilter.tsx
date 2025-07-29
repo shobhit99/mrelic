@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface LogFilterProps {
   onFilterChange: (filters: {
@@ -8,9 +8,11 @@ interface LogFilterProps {
   }) => void;
   levels: string[];
   services: string[];
+  search?: string; // Optional search prop to sync with external state
 }
 
-const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services }) => {
+const LogFilter: React.FC<LogFilterProps> = (props) => {
+  const { onFilterChange, levels, services } = props;
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('');
   const [service, setService] = useState('');
@@ -20,6 +22,14 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
     setSearch(newSearch);
     onFilterChange({ search: newSearch, level, service });
   };
+  
+  // Update local state when props change
+  useEffect(() => {
+    // If the search prop changes from outside (e.g., from the drawer filter)
+    if (search !== props.search && props.search !== undefined) {
+      setSearch(props.search);
+    }
+  }, [props.search]);
 
   const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLevel = e.target.value;
@@ -54,10 +64,27 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
             <input
               type="text"
               className="w-full pl-10 pr-4 py-2 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
-              placeholder="Search for Logs using Lucene"
+              placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
               value={search}
               onChange={handleSearchChange}
             />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <div className="group relative">
+                <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="absolute hidden group-hover:block right-0 top-full mt-2 w-64 p-2 bg-[#333333] text-xs text-gray-200 rounded shadow-lg z-10">
+                  <p className="font-bold mb-1">Search Syntax:</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><code>key:"value"</code> - Exact match</li>
+                    <li><code>key:*value*</code> - Contains value</li>
+                    <li><code>-key:value</code> - Exclude this value</li>
+                    <li><code>"text"</code> - Search all fields</li>
+                    <li><code>"text1" "text2"</code> - Multiple terms</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         

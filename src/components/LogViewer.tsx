@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LogEntry from './LogEntry';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
+import { filterLogsByQuery } from '@/lib/searchParser';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const LogViewer: React.FC = () => {
@@ -84,23 +85,21 @@ const LogViewer: React.FC = () => {
   useEffect(() => {
     let result = [...logs];
     
+    // Apply advanced search query if present
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      result = result.filter(log => 
-        log.message.toLowerCase().includes(searchLower) ||
-        (log.service && log.service.toLowerCase().includes(searchLower)) ||
-        (log.level && log.level.toLowerCase().includes(searchLower))
-      );
+      result = filterLogsByQuery(result, filters.search);
     }
     
+    // Apply level filter
     if (filters.level) {
-      result = result.filter(log => 
+      result = result.filter(log =>
         log.level && log.level.toLowerCase() === filters.level.toLowerCase()
       );
     }
     
+    // Apply service filter
     if (filters.service) {
-      result = result.filter(log => 
+      result = result.filter(log =>
         log.service && log.service.toLowerCase() === filters.service.toLowerCase()
       );
     }
@@ -144,12 +143,21 @@ const LogViewer: React.FC = () => {
     // Add to the search filter
     const newSearch = filters.search ? `${filters.search} ${searchTerm}` : searchTerm;
     
-    // Update the filters state
-    const newFilters = {...filters, search: newSearch};
+    // Create a new filters object
+    const newFilters = {
+      ...filters,
+      search: newSearch
+    };
+    
+    // Update the filters state directly
     setFilters(newFilters);
     
-    // Also call the filter change handler to ensure it's applied immediately
+    // Manually trigger a filter update by calling the filter change handler
     handleFilterChange(newFilters);
+    
+    // Log the new search term for debugging
+    console.log("Added filter:", searchTerm);
+    console.log("New search:", newSearch);
     
     // Close the drawer
     closeDrawer();
@@ -157,7 +165,32 @@ const LogViewer: React.FC = () => {
 
   // Handle filter changes
   const handleFilterChange = (newFilters: { search: string; level: string; service: string }) => {
+    console.log("Filter changed:", newFilters);
     setFilters(newFilters);
+    
+    // Force a re-render by updating the filtered logs
+    let result = [...logs];
+    
+    // Apply advanced search query if present
+    if (newFilters.search) {
+      result = filterLogsByQuery(result, newFilters.search);
+    }
+    
+    // Apply level filter
+    if (newFilters.level) {
+      result = result.filter(log =>
+        log.level && log.level.toLowerCase() === newFilters.level.toLowerCase()
+      );
+    }
+    
+    // Apply service filter
+    if (newFilters.service) {
+      result = result.filter(log =>
+        log.service && log.service.toLowerCase() === newFilters.service.toLowerCase()
+      );
+    }
+    
+    setFilteredLogs(result);
   };
 
   // Clear all logs
@@ -314,6 +347,7 @@ const LogViewer: React.FC = () => {
         onFilterChange={handleFilterChange}
         levels={levels}
         services={services}
+        search={filters.search}
       />
 
       {/* Column Selection */}
