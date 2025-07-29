@@ -150,6 +150,9 @@ const LogViewer: React.FC = () => {
     
     // Also call the filter change handler to ensure it's applied immediately
     handleFilterChange(newFilters);
+    
+    // Close the drawer
+    closeDrawer();
   };
 
   // Handle filter changes
@@ -168,10 +171,10 @@ const LogViewer: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white relative">
+    <div className="flex flex-col h-screen bg-[#151515] text-white relative">
       {/* Header - New Relic style */}
-      <header className="bg-gray-900 p-2 border-b border-gray-700 flex justify-between items-center">
-        <h1 className="text-lg font-bold text-[#00b9ff]">PrettyLogs</h1>
+      <header className="bg-[#151515] p-2 border-b border-[#333333] flex justify-between items-center">
+        <h1 className="text-lg font-bold text-[#00b9ff]">All logs</h1>
         <div className="flex items-center space-x-3">
           <div className="flex items-center">
             <span className={`w-2 h-2 rounded-full mr-1 ${isConnected ? 'bg-[#13ba00]' : 'bg-[#ff0000]'}`}></span>
@@ -218,15 +221,14 @@ const LogViewer: React.FC = () => {
 
       {/* Graph Section - New Relic style with Recharts */}
       {showGraph && (
-        <div className="bg-gray-900 p-2 border-b border-gray-700">
-          <div className="text-xs text-gray-400 mb-1">Log Volume Over Time</div>
-          <div className="h-48 bg-gray-800 rounded-md overflow-hidden">
+        <div className="bg-[#151515] p-2 border-b border-[#333333]">
+          <div className="text-xs text-gray-400 mb-1">Log Volume</div>
+          <div className="h-48 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={(() => {
-                  // Group logs by time intervals (every minute)
-                  const timeIntervals: { [key: string]: { [level: string]: number } } = {};
-                  const allLevels = levels.length > 0 ? levels : ['error', 'warn', 'info', 'debug'];
+                  // Group logs by time intervals
+                  const timeIntervals: { [key: string]: number } = {};
                   
                   // Initialize with at least 10 time points if we have logs
                   if (logs.length > 0) {
@@ -237,14 +239,11 @@ const LogViewer: React.FC = () => {
                     
                     for (let time = oldestLog.getTime(); time <= newestLog.getTime(); time += interval) {
                       const timeKey = new Date(time).toISOString();
-                      timeIntervals[timeKey] = {};
-                      allLevels.forEach(level => {
-                        timeIntervals[timeKey][level] = 0;
-                      });
+                      timeIntervals[timeKey] = 0;
                     }
                   }
                   
-                  // Count logs by level for each time interval
+                  // Count logs for each time interval
                   logs.forEach(log => {
                     const logTime = new Date(log.timestamp);
                     // Find the closest time interval
@@ -252,10 +251,7 @@ const LogViewer: React.FC = () => {
                     if (timeKeys.length === 0) {
                       // If no intervals yet, create one
                       const timeKey = logTime.toISOString();
-                      timeIntervals[timeKey] = {};
-                      allLevels.forEach(level => {
-                        timeIntervals[timeKey][level] = 0;
-                      });
+                      timeIntervals[timeKey] = 0;
                     }
                     
                     const closestTimeKey = timeKeys.reduce((prev, curr) => {
@@ -264,11 +260,7 @@ const LogViewer: React.FC = () => {
                       return prevDiff < currDiff ? prev : curr;
                     }, timeKeys[0]);
                     
-                    const level = log.level || 'unknown';
-                    if (!timeIntervals[closestTimeKey][level]) {
-                      timeIntervals[closestTimeKey][level] = 0;
-                    }
-                    timeIntervals[closestTimeKey][level]++;
+                    timeIntervals[closestTimeKey]++;
                   });
                   
                   // Convert to array for Recharts
@@ -276,42 +268,41 @@ const LogViewer: React.FC = () => {
                     const formattedTime = new Date(time).toLocaleTimeString();
                     return {
                       time: formattedTime,
-                      ...timeIntervals[time]
+                      count: timeIntervals[time]
                     };
                   });
                 })()}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                <XAxis dataKey="time" stroke="#999" tick={{ fill: '#999', fontSize: 10 }} />
-                <YAxis stroke="#999" tick={{ fill: '#999', fontSize: 10 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#333', border: '1px solid #555' }}
-                  labelStyle={{ color: '#fff' }}
-                  itemStyle={{ color: '#fff' }}
+                <CartesianGrid strokeDasharray="3 3" stroke="#333333" />
+                <XAxis
+                  dataKey="time"
+                  stroke="#666666"
+                  tick={{ fill: '#999999', fontSize: 10 }}
+                  axisLine={{ stroke: '#333333' }}
                 />
-                <Legend wrapperStyle={{ fontSize: 10, color: '#999' }} />
-                {(levels.length > 0 ? levels : ['error', 'warn', 'info', 'debug']).map(level => {
-                  let color = '#999';
-                  switch(level.toLowerCase()) {
-                    case 'error': color = '#f56565'; break;
-                    case 'warn':
-                    case 'warning': color = '#ed8936'; break;
-                    case 'info': color = '#4299e1'; break;
-                    case 'debug': color = '#48bb78'; break;
-                  }
-                  
-                  return (
-                    <Line
-                      key={level}
-                      type="monotone"
-                      dataKey={level}
-                      stroke={color}
-                      activeDot={{ r: 8 }}
-                      strokeWidth={2}
-                    />
-                  );
-                })}
+                <YAxis
+                  stroke="#666666"
+                  tick={{ fill: '#999999', fontSize: 10 }}
+                  axisLine={{ stroke: '#333333' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#151515',
+                    border: 'none',
+                    borderRadius: '3px',
+                    boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+                  }}
+                  labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#ffffff' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#00b9ff"
+                  dot={false}
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -326,7 +317,7 @@ const LogViewer: React.FC = () => {
       />
 
       {/* Column Selection */}
-      <div className="bg-gray-900 p-2 border-b border-gray-700 flex flex-wrap gap-2">
+      <div className="bg-[#151515] p-2 border-b border-[#333333] flex flex-wrap gap-2">
         <div className="text-xs text-gray-400">Columns:</div>
         {availableColumns.map(column => (
           <div key={column} className="flex items-center text-xs">
@@ -356,7 +347,7 @@ const LogViewer: React.FC = () => {
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead className="bg-gray-800 sticky top-0">
+            <thead className="bg-[#222222] sticky top-0">
               <tr>
                 {selectedColumns.includes('timestamp') && (
                   <th className="p-2 text-left text-gray-400 font-medium">Time</th>
@@ -402,7 +393,7 @@ const LogViewer: React.FC = () => {
                 return (
                   <tr
                     key={log.id}
-                    className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer"
+                    className="border-b border-[#333333] hover:bg-[#222222] cursor-pointer"
                     onClick={() => openLogDrawer(log)}
                   >
                     {selectedColumns.includes('timestamp') && (
@@ -410,7 +401,7 @@ const LogViewer: React.FC = () => {
                     )}
                     {selectedColumns.includes('service') && (
                       <td className="p-2">
-                        <span className="bg-gray-700 text-gray-300 px-2 py-0.5 rounded">{log.service || 'unknown'}</span>
+                        <span className="bg-[#333333] text-gray-300 px-2 py-0.5 rounded">{log.service || 'unknown'}</span>
                       </td>
                     )}
                     {selectedColumns.includes('level') && (
@@ -444,15 +435,15 @@ const LogViewer: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 p-2 border-t border-gray-700 text-center text-xs text-gray-500">
+      <footer className="bg-[#151515] p-2 border-t border-[#333333] text-center text-xs text-gray-500">
         <p>Displaying {filteredLogs.length} of {logs.length} logs</p>
       </footer>
 
       {/* Log Detail Drawer - New Relic style */}
       {drawerOpen && selectedLog && (
-        <div className="fixed inset-y-0 right-0 w-1/3 bg-gray-800 border-l border-gray-700 shadow-lg overflow-auto z-10">
-          <div className="sticky top-0 bg-gray-800 p-3 border-b border-gray-700 flex justify-between items-center">
-            <h3 className="text-sm font-semibold text-white">Log Details</h3>
+        <div className="fixed inset-y-0 right-0 w-1/3 bg-[#222222] border-l border-[#333333] shadow-lg overflow-auto z-10">
+          <div className="sticky top-0 bg-[#222222] p-3 border-b border-[#333333] flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-[#00b9ff]">Log Details</h3>
             <button
               onClick={closeDrawer}
               className="text-gray-400 hover:text-white"
@@ -464,7 +455,7 @@ const LogViewer: React.FC = () => {
           </div>
           
           {/* Message and Timestamp at the top */}
-          <div className="p-3 border-b border-gray-700 bg-gray-850">
+          <div className="p-3 border-b border-[#333333] bg-[#1a1a1a]">
             <div className="mb-2">
               <div className="text-xs text-gray-400">Timestamp</div>
               <div className="text-sm text-white">{selectedLog.timestamp}</div>
@@ -477,17 +468,17 @@ const LogViewer: React.FC = () => {
           
           {/* Key-Value pairs */}
           <div className="p-3">
-            <div className="text-xs text-gray-400 mb-2">Attributes</div>
+            <div className="text-xs text-[#00b9ff] mb-2">Attributes</div>
             <div className="space-y-2">
               {Object.entries(selectedLog).filter(([key]) =>
                 !['id', 'timestamp'].includes(key)
               ).map(([key, value]) => (
                 <div key={key} className="flex flex-col">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-blue-400">{key}</span>
+                    <span className="text-xs text-[#00b9ff]">{key}</span>
                     <button
                       onClick={() => addFilterFromDrawer(key, value)}
-                      className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700"
+                      className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
                       title="Filter by this value"
                     >
                       Filter

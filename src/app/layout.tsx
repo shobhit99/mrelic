@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PrettyLogs - OpenTelemetry Log Viewer",
+  title: "Logs - New Relic",
   description: "A real-time log viewer for OpenTelemetry logs in New Relic style",
 };
 
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#1a1a1a] text-white text-sm`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#151515] text-white text-sm`}
       >
         {children}
       </body>

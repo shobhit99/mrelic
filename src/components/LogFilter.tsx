@@ -41,7 +41,7 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
   };
 
   return (
-    <div className="bg-gray-900 p-2 border-b border-gray-700">
+    <div className="bg-[#151515] p-2 border-b border-[#333333]">
       <div className="flex flex-wrap gap-2 items-center">
         {/* Larger search bar like New Relic */}
         <div className="flex-grow w-full mb-2">
@@ -53,8 +53,8 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
             </div>
             <input
               type="text"
-              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
-              placeholder="Search logs... (e.g. level:error service:api-gateway contextId:abc123)"
+              className="w-full pl-10 pr-4 py-2 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+              placeholder="Search for Logs using Lucene"
               value={search}
               onChange={handleSearchChange}
             />
@@ -66,7 +66,7 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
         <div className="flex items-center">
           <span className="text-xs text-gray-400 mr-1">Level:</span>
           <select
-            className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+            className="px-2 py-1 bg-[#222222] border border-[#333333] rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
             value={level}
             onChange={handleLevelChange}
           >
@@ -80,7 +80,7 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
         <div className="flex items-center">
           <span className="text-xs text-gray-400 mr-1">Service:</span>
           <select
-            className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+            className="px-2 py-1 bg-[#222222] border border-[#333333] rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
             value={service}
             onChange={handleServiceChange}
           >
@@ -93,7 +93,7 @@ const LogFilter: React.FC<LogFilterProps> = ({ onFilterChange, levels, services 
 
           <div>
             <button
-              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-xs text-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#00b9ff] transition-colors"
+              className="px-2 py-1 bg-[#333333] hover:bg-[#444444] text-xs text-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#00b9ff] transition-colors"
               onClick={clearFilters}
             >
               Clear
