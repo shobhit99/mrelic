@@ -4,7 +4,7 @@ import { LogEntry } from './logStore';
 import { parseSearchQuery, filterLogsBySearchTerms } from './searchParser';
 
 // Create database path
-const dbPath = path.join(process.cwd(), 'logs.db');
+const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'logs.db');
 
 // Initialize database
 const db = new Database(dbPath);

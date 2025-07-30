@@ -53,13 +53,13 @@ rl.on('line', (line) => {
     const formattedLog = {
       timestamp: logData.timestamp,
       level: logData.level || 'info',
-      message: logData.message || '',
+      message: logData.message || logData.msg || '',  // Handle both 'message' and 'msg' (logrus)
       meta: {}
     };
 
     // Move all other fields to meta
     for (const [key, value] of Object.entries(logData)) {
-      if (key !== 'timestamp' && key !== 'level' && key !== 'message') {
+      if (key !== 'timestamp' && key !== 'level' && key !== 'message' && key !== 'msg') {
         formattedLog.meta[key] = value;
       }
     }
