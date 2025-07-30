@@ -855,11 +855,11 @@ const LogViewer: React.FC = () => {
           <div className="p-3 border-b border-[#333333] bg-[#1a1a1a]">
             <div className="mb-2">
               <div className="text-xs text-gray-400">Timestamp</div>
-              <div className="text-sm text-white">{selectedLog.timestamp}</div>
+              <div className="text-xs text-white">{selectedLog.timestamp}</div>
             </div>
             <div>
               <div className="text-xs text-gray-400">Message</div>
-              <div className="text-sm text-white break-words">{selectedLog.message}</div>
+              <div className="text-xs text-white break-words">{selectedLog.message}</div>
             </div>
           </div>
           
@@ -877,13 +877,13 @@ const LogViewer: React.FC = () => {
                       <span className="text-xs text-[#00b9ff]">{key}</span>
                       <button
                         onClick={() => addFilterFromDrawer(key, value)}
-                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
                         title="Filter by this value"
                       >
                         Filter
                       </button>
                     </div>
-                    <div className="text-sm text-white break-words">
+                    <div className="text-xs text-white break-words">
                       {typeof value === 'object' && value !== null
                         ? JSON.stringify(value, null, 2)
                         : String(value)
@@ -906,13 +906,13 @@ const LogViewer: React.FC = () => {
                       <span className="text-xs text-[#00b9ff]">{key}</span>
                       <button
                         onClick={() => addFilterFromDrawer(key, value)}
-                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
                         title="Filter by this value"
                       >
                         Filter
                       </button>
                     </div>
-                    <div className="text-sm text-white break-words">
+                    <div className="text-xs text-white break-words">
                       {typeof value === 'object' && value !== null
                         ? JSON.stringify(value, null, 2)
                         : String(value)
@@ -1022,13 +1022,13 @@ const LogViewer: React.FC = () => {
                                       <span className="text-xs text-[#00b9ff]">{nestedKey}</span>
                                       <button
                                         onClick={() => addFilterFromDrawer(`${key}.${nestedKey}`, nestedValue)}
-                                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
                                         title="Filter by this value"
                                       >
                                         Filter
                                       </button>
                                     </div>
-                                    <div className="text-sm text-white break-words">
+                                    <div className="text-xs text-white break-words">
                                       {typeof nestedValue === 'object' && nestedValue !== null
                                         ? JSON.stringify(nestedValue, null, 2)
                                         : String(nestedValue)
@@ -1054,13 +1054,13 @@ const LogViewer: React.FC = () => {
                         <span className="text-xs text-[#00b9ff]">{key}</span>
                         <button
                           onClick={() => addFilterFromDrawer(key, displayValue)}
-                          className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                          className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
                           title="Filter by this value"
                         >
                           Filter
                         </button>
                       </div>
-                      <div className="text-sm text-white break-words">
+                      <div className="text-xs text-white break-words">
                         {typeof displayValue === 'object' && displayValue !== null
                           ? JSON.stringify(displayValue, null, 2)
                           : String(displayValue)
