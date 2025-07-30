@@ -14,9 +14,10 @@ app.prepare().then(() => {
 
   // Start the server without trying to initialize Socket.IO
   // We'll handle Socket.IO directly in the Next.js app
-  server.listen(3000, (err) => {
+  const port = process.env.PORT || 3000;
+  server.listen(port, (err) => {
     if (err) throw err;
-    console.log('> Ready on http://localhost:3000');
+    console.log(`> Ready on http://localhost:${port}`);
   });
 }).catch(err => {
   console.error('Error preparing Next.js app:', err);

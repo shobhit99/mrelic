@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Get service name from command line argument or current directory
+SERVICE_NAME="$1"
+if [ -z "$SERVICE_NAME" ]; then
+    SERVICE_NAME=$(basename "$(pwd)")
+fi
+
+# Default server details (will be replaced by docker environment)
+SERVER_HOST=${MRELIC_HOST:-localhost}
+SERVER_PORT=${MRELIC_PORT:-3000}
+
+# Export environment variables for the log processor
+export MRELIC_HOST="$SERVER_HOST"
+export MRELIC_PORT="$SERVER_PORT"
+
+echo "📡 Connecting to mrelic server on port $SERVER_PORT"
+echo "🏷️  Service: $SERVICE_NAME"
+echo "Sending logs to: http://${SERVER_HOST}:${SERVER_PORT}/api/otel"
+
+# Run the Node.js log processor with service name as argument
+exec node /usr/local/bin/log-processor.js "$SERVICE_NAME" 
