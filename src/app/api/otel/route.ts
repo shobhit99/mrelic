@@ -1,56 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory log storage
-type LogEntry = {
-  id: string;
-  timestamp: string;
-  message: string;
-  level?: string;
-  service?: string;
-  [key: string]: any;
-};
-
-// Store logs in memory (this will be reset when the server restarts)
-let logs: LogEntry[] = [];
-const MAX_LOGS = 1000;
-
-// Add a log entry
-function addLog(log: any, headers?: Headers): LogEntry {
-  // Ensure the log has a message property
-  const message = log.message || log.msg || log.body || JSON.stringify(log);
-  
-  // Get service name from headers if available
-  let serviceName = log.service || log.serviceName || log.service_name;
-
-  
-  // Check for service.name in headers
-  if (headers) {
-    const headerServiceName = headers.get('service.name');
-    if (headerServiceName) {
-      serviceName = headerServiceName;
-    }
-  }
-  
-  // Create a log entry with a unique ID
-  const logEntry: LogEntry = {
-    id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-    timestamp: log.timestamp || new Date().toISOString(),
-    message,
-    level: log.level || log.severity || 'info',
-    service: serviceName || 'system',
-    ...log // Include all other properties
-  };
-
-  // Add to the beginning of the array for newest-first order
-  logs.unshift(logEntry);
-  
-  // Trim logs if we exceed the maximum
-  if (logs.length > MAX_LOGS) {
-    logs = logs.slice(0, MAX_LOGS);
-  }
-
-  return logEntry;
-}
+import { databaseService } from '@/lib/database';
 
 // POST endpoint to receive logs
 export async function POST(request: NextRequest) {
@@ -68,9 +17,9 @@ export async function POST(request: NextRequest) {
     if (Array.isArray(body)) {
       body = body.map(log => {
         if (log.meta && typeof log.meta === 'object') {
-          var meta = log.meta;
+          const meta = log.meta;
           delete log.meta;
-          addLog(log, headers);
+          databaseService.addLog(log, headers);
           log = {...log, ...meta};
         }
         return log;
@@ -78,16 +27,16 @@ export async function POST(request: NextRequest) {
       logsToProcess = body;
     } else {
       if (body.meta && typeof body.meta === 'object') {
-      var meta = body.meta;
+        const meta = body.meta;
         delete body.meta;
-        addLog(body, headers);
+        databaseService.addLog(body, headers);
         body = {...body, ...meta};
       }
       logsToProcess = [body];
     }
     
     // Process each log entry
-    const processedLogs = logsToProcess.map(log => addLog(log, headers));
+    const processedLogs = logsToProcess.map((log: any) => databaseService.addLog(log, headers));
     
     return NextResponse.json({
       success: true,
@@ -112,35 +61,32 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('query') || '';
     const level = searchParams.get('level') || '';
     const service = searchParams.get('service') || '';
+    const limit = parseInt(searchParams.get('limit') || '1000');
+    const offset = parseInt(searchParams.get('offset') || '0');
     
-    let filteredLogs = [...logs];
+    // Build filters object
+    const filters: any = {};
+    if (query) filters.query = query;
+    if (level) filters.level = level;
+    if (service) filters.service = service;
+    if (limit) filters.limit = limit;
+    if (offset) filters.offset = offset;
     
-    // Apply filters if provided
-    if (query) {
-      const lowerQuery = query.toLowerCase();
-      filteredLogs = filteredLogs.filter(log =>
-        log.message.toLowerCase().includes(lowerQuery) ||
-        (log.service && log.service.toLowerCase().includes(lowerQuery)) ||
-        (log.level && log.level.toLowerCase().includes(lowerQuery))
-      );
-    }
+    // Get logs from database
+    const logs = databaseService.getLogs(filters);
+    const totalCount = databaseService.getLogCount(filters);
     
-    if (level) {
-      filteredLogs = filteredLogs.filter(log =>
-        log.level && log.level.toLowerCase() === level.toLowerCase()
-      );
-    }
-    
-    if (service) {
-      filteredLogs = filteredLogs.filter(log =>
-        log.service && log.service.toLowerCase() === service.toLowerCase()
-      );
-    }
+    // Get unique levels and services for filter options
+    const levels = databaseService.getLevels();
+    const services = databaseService.getServices();
     
     return NextResponse.json({
       success: true,
-      count: filteredLogs.length,
-      logs: filteredLogs
+      count: logs.length,
+      totalCount: totalCount,
+      logs: logs,
+      levels: levels,
+      services: services
     }, { status: 200 });
   } catch (error) {
     console.error('Error retrieving logs:', error);
@@ -154,7 +100,7 @@ export async function GET(request: NextRequest) {
 // DELETE endpoint to clear logs
 export async function DELETE() {
   try {
-    logs = [];
+    databaseService.clearLogs();
     return NextResponse.json({
       success: true,
       message: 'Logs cleared successfully'

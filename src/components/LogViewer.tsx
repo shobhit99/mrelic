@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import LogEntry from './LogEntry';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
-import { filterLogsByQuery } from '@/lib/searchParser';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
-  const [expandedLogIds, setExpandedLogIds] = useState<Set<string>>(new Set());
+
   const [isConnected, setIsConnected] = useState(true);
   const [autoScroll, setAutoScroll] = useState(false); // Default to false as requested
   const [levels, setLevels] = useState<string[]>([]);
@@ -18,18 +16,25 @@ const LogViewer: React.FC = () => {
   const [filters, setFilters] = useState({ search: '', level: '', service: '' });
   const [isPolling, setIsPolling] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['timestamp', 'service', 'level', 'tags', 'message']);
-  const [availableColumns, setAvailableColumns] = useState<string[]>(['timestamp', 'service', 'level', 'tags', 'message']);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(['timestamp', 'service', 'level', 'message']);
+  const availableColumns = ['timestamp', 'service', 'level', 'message'];
   const [selectedLog, setSelectedLog] = useState<LogEntryType | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   
   const logsEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch logs from the server
-  const fetchLogs = async () => {
+  // Fetch logs from the server with search parameters
+  const fetchLogs = async (searchFilters?: { search?: string; level?: string; service?: string }) => {
     try {
-      const response = await fetch('/api/otel');
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (searchFilters?.search) params.append('query', searchFilters.search);
+      if (searchFilters?.level) params.append('level', searchFilters.level);
+      if (searchFilters?.service) params.append('service', searchFilters.service);
+      
+      const url = `/api/otel${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch logs');
       }
@@ -41,6 +46,12 @@ const LogViewer: React.FC = () => {
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         setLogs(sortedLogs);
+        setFilteredLogs(sortedLogs); // Set filtered logs directly from API
+        
+        // Update available levels and services from API response
+        if (data.levels) setLevels(data.levels);
+        if (data.services) setServices(data.services);
+        
         setIsConnected(true);
       }
     } catch (error) {
@@ -51,12 +62,12 @@ const LogViewer: React.FC = () => {
 
   // Set up polling for logs
   useEffect(() => {
-    // Fetch logs immediately
-    fetchLogs();
+    // Fetch logs immediately with current filters
+    fetchLogs(filters);
     
     // Set up polling interval
     if (isPolling) {
-      pollingIntervalRef.current = setInterval(fetchLogs, 2000); // Poll every 2 seconds
+      pollingIntervalRef.current = setInterval(() => fetchLogs(filters), 2000); // Poll every 2 seconds
     }
     
     // Clean up on unmount
@@ -65,47 +76,10 @@ const LogViewer: React.FC = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling]);
+  }, [isPolling, filters]);
 
-  // Extract unique levels and services from logs
-  useEffect(() => {
-    const uniqueLevels = new Set<string>();
-    const uniqueServices = new Set<string>();
-    
-    logs.forEach(log => {
-      if (log.level) uniqueLevels.add(log.level);
-      if (log.service) uniqueServices.add(log.service);
-    });
-    
-    setLevels(Array.from(uniqueLevels));
-    setServices(Array.from(uniqueServices));
-  }, [logs]);
-
-  // Apply filters
-  useEffect(() => {
-    let result = [...logs];
-    
-    // Apply advanced search query if present
-    if (filters.search) {
-      result = filterLogsByQuery(result, filters.search);
-    }
-    
-    // Apply level filter
-    if (filters.level) {
-      result = result.filter(log =>
-        log.level && log.level.toLowerCase() === filters.level.toLowerCase()
-      );
-    }
-    
-    // Apply service filter
-    if (filters.service) {
-      result = result.filter(log =>
-        log.service && log.service.toLowerCase() === filters.service.toLowerCase()
-      );
-    }
-    
-    setFilteredLogs(result);
-  }, [logs, filters]);
+  // We no longer need client-side filtering since we're doing it on the server
+  // Remove the useEffect for extracting levels/services and applying filters
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -149,10 +123,7 @@ const LogViewer: React.FC = () => {
       search: newSearch
     };
     
-    // Update the filters state directly
-    setFilters(newFilters);
-    
-    // Manually trigger a filter update by calling the filter change handler
+    // Update the filters and trigger search
     handleFilterChange(newFilters);
     
     // Log the new search term for debugging
@@ -163,34 +134,13 @@ const LogViewer: React.FC = () => {
     closeDrawer();
   };
 
-  // Handle filter changes
+  // Handle filter changes - now triggers API call
   const handleFilterChange = (newFilters: { search: string; level: string; service: string }) => {
     console.log("Filter changed:", newFilters);
     setFilters(newFilters);
     
-    // Force a re-render by updating the filtered logs
-    let result = [...logs];
-    
-    // Apply advanced search query if present
-    if (newFilters.search) {
-      result = filterLogsByQuery(result, newFilters.search);
-    }
-    
-    // Apply level filter
-    if (newFilters.level) {
-      result = result.filter(log =>
-        log.level && log.level.toLowerCase() === newFilters.level.toLowerCase()
-      );
-    }
-    
-    // Apply service filter
-    if (newFilters.service) {
-      result = result.filter(log =>
-        log.service && log.service.toLowerCase() === newFilters.service.toLowerCase()
-      );
-    }
-    
-    setFilteredLogs(result);
+    // Fetch logs with new filters from API
+    fetchLogs(newFilters);
   };
 
   // Clear all logs
@@ -409,9 +359,7 @@ const LogViewer: React.FC = () => {
                 {selectedColumns.includes('level') && (
                   <th className="p-2 text-left text-gray-400 font-medium">Level</th>
                 )}
-                {selectedColumns.includes('tags') && (
-                  <th className="p-2 text-left text-gray-400 font-medium">Tags</th>
-                )}
+
                 {selectedColumns.includes('message') && (
                   <th className="p-2 text-left text-gray-400 font-medium">Message</th>
                 )}
@@ -466,74 +414,18 @@ const LogViewer: React.FC = () => {
                         </div>
                       </td>
                     )}
-                    {selectedColumns.includes('tags') && (
-                      <td className="p-2">
-                        <div className="flex flex-wrap gap-1">
-                          {/* Display the most relevant tags based on service type */}
-                          {log.service === 'api-gateway' && log.endpoint && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              endpoint:{log.endpoint}
-                            </span>
-                          )}
-                          {log.service === 'api-gateway' && log.method && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              method:{log.method}
-                            </span>
-                          )}
-                          {log.service === 'user-service' && log.action && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              action:{log.action}
-                            </span>
-                          )}
-                          {log.service === 'user-service' && log.userId && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              userId:{log.userId}
-                            </span>
-                          )}
-                          {log.service === 'payment-service' && log.status && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              status:{log.status}
-                            </span>
-                          )}
-                          {log.service === 'payment-service' && log.paymentMethod && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              method:{log.paymentMethod}
-                            </span>
-                          )}
-                          {log.service === 'inventory-service' && log.action && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              action:{log.action}
-                            </span>
-                          )}
-                          {log.service === 'inventory-service' && log.item && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              item:{log.item}
-                            </span>
-                          )}
-                          {log.service === 'notification-service' && log.type && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              type:{log.type}
-                            </span>
-                          )}
-                          {log.service === 'notification-service' && log.status && (
-                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
-                              status:{log.status}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    )}
+
                     {selectedColumns.includes('message') && (
                       <td className="p-2 text-gray-300 truncate max-w-md">{log.message}</td>
                     )}
                     <td className="p-2 text-right">
                       <svg
-                        className={`w-3 h-3 text-gray-400 transform transition-transform ${expandedLogIds.has(log.id) ? 'rotate-180' : ''}`}
+                        className="w-3 h-3 text-gray-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </td>
                   </tr>

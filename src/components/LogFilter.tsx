@@ -20,7 +20,19 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearch = e.target.value;
     setSearch(newSearch);
-    onFilterChange({ search: newSearch, level, service });
+    // Don't trigger search automatically anymore
+  };
+
+  const handleSearchClick = () => {
+    // Trigger search when button is clicked
+    onFilterChange({ search, level, service });
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Trigger search when Enter is pressed
+    if (e.key === 'Enter') {
+      handleSearchClick();
+    }
   };
   
   // Update local state when props change
@@ -34,12 +46,14 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLevel = e.target.value;
     setLevel(newLevel);
+    // Trigger search immediately for filters
     onFilterChange({ search, level: newLevel, service });
   };
 
   const handleServiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newService = e.target.value;
     setService(newService);
+    // Trigger search immediately for filters
     onFilterChange({ search, level, service: newService });
   };
 
@@ -55,7 +69,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
       <div className="flex flex-wrap gap-2 items-center">
         {/* Larger search bar like New Relic */}
         <div className="flex-grow w-full mb-2">
-          <div className="relative">
+          <div className="relative flex">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -63,12 +77,19 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
             </div>
             <input
               type="text"
-              className="w-full pl-10 pr-4 py-2 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+              className="flex-grow pl-10 pr-4 py-2 bg-[#222222] border border-[#333333] rounded-l text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
               placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
               value={search}
               onChange={handleSearchChange}
+              onKeyPress={handleKeyPress}
             />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            <button
+              onClick={handleSearchClick}
+              className="px-4 py-2 bg-[#00b9ff] hover:bg-[#0099cc] text-white text-sm rounded-r focus:outline-none focus:ring-1 focus:ring-[#00b9ff] transition-colors"
+            >
+              Search
+            </button>
+            <div className="absolute inset-y-0 right-20 flex items-center pr-3">
               <div className="group relative">
                 <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -76,11 +97,11 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
                 <div className="absolute hidden group-hover:block right-0 top-full mt-2 w-64 p-2 bg-[#333333] text-xs text-gray-200 rounded shadow-lg z-10">
                   <p className="font-bold mb-1">Search Syntax:</p>
                   <ul className="list-disc pl-4 space-y-1">
-                    <li><code>key:"value"</code> - Exact match</li>
+                    <li><code>key:&quot;value&quot;</code> - Exact match</li>
                     <li><code>key:*value*</code> - Contains value</li>
                     <li><code>-key:value</code> - Exclude this value</li>
-                    <li><code>"text"</code> - Search all fields</li>
-                    <li><code>"text1" "text2"</code> - Multiple terms</li>
+                    <li><code>&quot;text&quot;</code> - Search all fields</li>
+                    <li><code>&quot;text1&quot; &quot;text2&quot;</code> - Multiple terms</li>
                   </ul>
                 </div>
               </div>
