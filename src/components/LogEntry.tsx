@@ -57,8 +57,24 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, expanded, onToggleExpand }) =>
         </div>
         
         {log.service && (
-          <div className="flex-shrink-0 bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded mr-2 w-24 truncate">
-            {log.service}
+          <div className="flex-shrink-0 bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded mr-2 min-w-24 max-w-48 truncate">
+            <span className="font-semibold">{log.service}</span>
+            {/* Display the most relevant tag based on service type */}
+            {log.service === 'api-gateway' && log.endpoint && (
+              <span className="ml-1 opacity-80">{log.endpoint}</span>
+            )}
+            {log.service === 'user-service' && log.action && (
+              <span className="ml-1 opacity-80">{log.action}</span>
+            )}
+            {log.service === 'payment-service' && log.status && (
+              <span className="ml-1 opacity-80">{log.status}</span>
+            )}
+            {log.service === 'inventory-service' && log.action && (
+              <span className="ml-1 opacity-80">{log.action}</span>
+            )}
+            {log.service === 'notification-service' && log.type && (
+              <span className="ml-1 opacity-80">{log.type}</span>
+            )}
           </div>
         )}
         

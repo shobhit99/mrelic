@@ -12,6 +12,13 @@ interface SearchTerm {
 }
 
 /**
+ * Helper function to check if a string contains another string, case insensitive
+ */
+function containsIgnoreCase(text: string, search: string): boolean {
+  return text.toLowerCase().includes(search.toLowerCase());
+}
+
+/**
  * Parse a search query into structured search terms
  * Supports:
  * - key:"value" (exact match)
@@ -200,21 +207,31 @@ export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTer
         }
       } else if (term.type === 'TEXT') {
         // For plain text terms, check if any field contains the value
-        const termValueLower = term.value.toLowerCase();
+        const termValue = term.value;
         
-        // Check in all string fields
+        // Check in all fields
         for (const [key, value] of Object.entries(log)) {
           if (typeof value === 'string') {
-            if (value.toLowerCase().includes(termValueLower)) {
+            if (containsIgnoreCase(value, termValue)) {
+              matches = true;
+              break;
+            }
+          } else if (typeof value === 'number' || typeof value === 'boolean') {
+            // Convert numbers and booleans to strings for comparison
+            if (String(value).toLowerCase() === termValue.toLowerCase()) {
               matches = true;
               break;
             }
           } else if (typeof value === 'object' && value !== null) {
             // For object values, check in the stringified version
-            const stringValue = JSON.stringify(value).toLowerCase();
-            if (stringValue.includes(termValueLower)) {
-              matches = true;
-              break;
+            try {
+              const stringValue = JSON.stringify(value);
+              if (containsIgnoreCase(stringValue, termValue)) {
+                matches = true;
+                break;
+              }
+            } catch (e) {
+              // Ignore stringify errors
             }
           }
         }
@@ -244,6 +261,12 @@ export function filterLogsByQuery(logs: LogEntry[], query: string): LogEntry[] {
     return logs;
   }
 
+  console.log('Filtering logs with query:', query);
   const searchTerms = parseSearchQuery(query);
-  return filterLogsBySearchTerms(logs, searchTerms);
+  console.log('Parsed search terms:', searchTerms);
+  
+  const filteredLogs = filterLogsBySearchTerms(logs, searchTerms);
+  console.log(`Filtered ${logs.length} logs down to ${filteredLogs.length}`);
+  
+  return filteredLogs;
 }

@@ -18,8 +18,8 @@ const LogViewer: React.FC = () => {
   const [filters, setFilters] = useState({ search: '', level: '', service: '' });
   const [isPolling, setIsPolling] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['timestamp', 'service', 'level', 'message']);
-  const [availableColumns, setAvailableColumns] = useState<string[]>(['timestamp', 'service', 'level', 'message']);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(['timestamp', 'service', 'level', 'tags', 'message']);
+  const [availableColumns, setAvailableColumns] = useState<string[]>(['timestamp', 'service', 'level', 'tags', 'message']);
   const [selectedLog, setSelectedLog] = useState<LogEntryType | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   
@@ -392,6 +392,9 @@ const LogViewer: React.FC = () => {
                 {selectedColumns.includes('level') && (
                   <th className="p-2 text-left text-gray-400 font-medium">Level</th>
                 )}
+                {selectedColumns.includes('tags') && (
+                  <th className="p-2 text-left text-gray-400 font-medium">Tags</th>
+                )}
                 {selectedColumns.includes('message') && (
                   <th className="p-2 text-left text-gray-400 font-medium">Message</th>
                 )}
@@ -443,6 +446,63 @@ const LogViewer: React.FC = () => {
                         <div className="flex items-center">
                           <div className={`w-2 h-2 rounded-full mr-1 ${getLevelColor(log.level)}`}></div>
                           <span className="text-gray-300">{log.level}</span>
+                        </div>
+                      </td>
+                    )}
+                    {selectedColumns.includes('tags') && (
+                      <td className="p-2">
+                        <div className="flex flex-wrap gap-1">
+                          {/* Display the most relevant tags based on service type */}
+                          {log.service === 'api-gateway' && log.endpoint && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              endpoint:{log.endpoint}
+                            </span>
+                          )}
+                          {log.service === 'api-gateway' && log.method && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              method:{log.method}
+                            </span>
+                          )}
+                          {log.service === 'user-service' && log.action && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              action:{log.action}
+                            </span>
+                          )}
+                          {log.service === 'user-service' && log.userId && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              userId:{log.userId}
+                            </span>
+                          )}
+                          {log.service === 'payment-service' && log.status && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              status:{log.status}
+                            </span>
+                          )}
+                          {log.service === 'payment-service' && log.paymentMethod && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              method:{log.paymentMethod}
+                            </span>
+                          )}
+                          {log.service === 'inventory-service' && log.action && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              action:{log.action}
+                            </span>
+                          )}
+                          {log.service === 'inventory-service' && log.item && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              item:{log.item}
+                            </span>
+                          )}
+                          {log.service === 'notification-service' && log.type && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              type:{log.type}
+                            </span>
+                          )}
+                          {log.service === 'notification-service' && log.status && (
+                            <span className="bg-[#333333] text-gray-300 text-xs px-1.5 py-0.5 rounded">
+                              status:{log.status}
+                            </span>
+                          )}
                         </div>
                       </td>
                     )}
@@ -500,32 +560,93 @@ const LogViewer: React.FC = () => {
             </div>
           </div>
           
-          {/* Key-Value pairs */}
+          {/* Key-Value pairs - Organized by categories */}
           <div className="p-3">
-            <div className="text-xs text-[#00b9ff] mb-2">Attributes</div>
-            <div className="space-y-2">
-              {Object.entries(selectedLog).filter(([key]) =>
-                !['id', 'timestamp'].includes(key)
-              ).map(([key, value]) => (
-                <div key={key} className="flex flex-col">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-[#00b9ff]">{key}</span>
-                    <button
-                      onClick={() => addFilterFromDrawer(key, value)}
-                      className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
-                      title="Filter by this value"
-                    >
-                      Filter
-                    </button>
+            {/* Service Tags Section */}
+            <div className="mb-4">
+              <div className="text-xs text-[#00b9ff] mb-2">Service Tags</div>
+              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
+                {Object.entries(selectedLog).filter(([key]) =>
+                  ['service', 'service_name'].includes(key)
+                ).map(([key, value]) => (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-[#00b9ff]">{key}</span>
+                      <button
+                        onClick={() => addFilterFromDrawer(key, value)}
+                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                        title="Filter by this value"
+                      >
+                        Filter
+                      </button>
+                    </div>
+                    <div className="text-sm text-white break-words">
+                      {typeof value === 'object' && value !== null
+                        ? JSON.stringify(value, null, 2)
+                        : String(value)
+                      }
+                    </div>
                   </div>
-                  <div className="text-sm text-white break-words">
-                    {typeof value === 'object' && value !== null
-                      ? JSON.stringify(value, null, 2)
-                      : String(value)
-                    }
+                ))}
+              </div>
+            </div>
+            
+            {/* Log Details Section */}
+            <div className="mb-4">
+              <div className="text-xs text-[#00b9ff] mb-2">Log Details</div>
+              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
+                {Object.entries(selectedLog).filter(([key]) =>
+                  ['level', 'message'].includes(key)
+                ).map(([key, value]) => (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-[#00b9ff]">{key}</span>
+                      <button
+                        onClick={() => addFilterFromDrawer(key, value)}
+                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                        title="Filter by this value"
+                      >
+                        Filter
+                      </button>
+                    </div>
+                    <div className="text-sm text-white break-words">
+                      {typeof value === 'object' && value !== null
+                        ? JSON.stringify(value, null, 2)
+                        : String(value)
+                      }
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+            
+            {/* Tags Section - All other attributes */}
+            <div>
+              <div className="text-xs text-[#00b9ff] mb-2">Tags</div>
+              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
+                {Object.entries(selectedLog).filter(([key]) =>
+                  !['id', 'timestamp', 'service', 'service_name', 'level', 'message'].includes(key)
+                ).map(([key, value]) => (
+                  <div key={key} className="flex flex-col">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-[#00b9ff]">{key}</span>
+                      <button
+                        onClick={() => addFilterFromDrawer(key, value)}
+                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                        title="Filter by this value"
+                      >
+                        Filter
+                      </button>
+                    </div>
+                    <div className="text-sm text-white break-words">
+                      {typeof value === 'object' && value !== null
+                        ? JSON.stringify(value, null, 2)
+                        : String(value)
+                      }
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

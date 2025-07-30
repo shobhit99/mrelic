@@ -15,9 +15,21 @@ let logs: LogEntry[] = [];
 const MAX_LOGS = 1000;
 
 // Add a log entry
-function addLog(log: any): LogEntry {
+function addLog(log: any, headers?: Headers): LogEntry {
   // Ensure the log has a message property
   const message = log.message || log.msg || log.body || JSON.stringify(log);
+  
+  // Get service name from headers if available
+  let serviceName = log.service || log.serviceName || log.service_name;
+
+  
+  // Check for service.name in headers
+  if (headers) {
+    const headerServiceName = headers.get('service.name');
+    if (headerServiceName) {
+      serviceName = headerServiceName;
+    }
+  }
   
   // Create a log entry with a unique ID
   const logEntry: LogEntry = {
@@ -25,7 +37,7 @@ function addLog(log: any): LogEntry {
     timestamp: log.timestamp || new Date().toISOString(),
     message,
     level: log.level || log.severity || 'info',
-    service: log.service || log.serviceName || log.service_name || 'system',
+    service: serviceName || 'system',
     ...log // Include all other properties
   };
 
@@ -46,6 +58,9 @@ export async function POST(request: NextRequest) {
     // Parse the request body
     const body = await request.json();
     
+    // Get headers from the request
+    const headers = request.headers;
+    
     // Handle different log formats
     let logsToProcess = [];
     
@@ -57,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Process each log entry
-    const processedLogs = logsToProcess.map(log => addLog(log));
+    const processedLogs = logsToProcess.map(log => addLog(log, headers));
     
     return NextResponse.json({
       success: true,
