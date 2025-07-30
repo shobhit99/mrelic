@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Your Next.js application
+  prettylogs:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - log-network
+
+  # Fluent Bit for log collection
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./parsers.conf:/fluent-bit/etc/parsers.conf
+      - ./logs:/logs
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: /fluent-bit/bin/fluent-bit -c /fluent-bit/etc/fluent-bit.conf
+    depends_on:
+      - prettylogs
+    networks:
+      - log-network
+    environment:
+      - SERVICE_NAME=fluent-bit-collector
+
+  # Test service to generate logs
+  test-service:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    environment:
+      - SERVICE_NAME=test-nginx
+    volumes:
+      - ./test-logs.js:/app/test-logs.js
+    command: >
+      sh -c "
+        echo 'Starting test service...' &&
+        while true; do
+          echo '{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\",\"level\":\"info\",\"service\":\"test-nginx\",\"message\":\"Test log from nginx service\"}' >> /var/log/nginx/access.log;
+          sleep 5;
+        done
+      "
+    networks:
+      - log-network
+
+networks:
+  log-network:
+    driver: bridge 

@@ -620,32 +620,152 @@ const LogViewer: React.FC = () => {
               </div>
             </div>
             
+            {/* Meta Section - Special handling for JSON data */}
+            {selectedLog.meta && (
+              <div className="mb-4">
+                <div className="text-xs text-[#00b9ff] mb-2">Meta Data</div>
+                <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
+                  {(() => {
+                    // Try to parse meta as JSON if it's a string
+                    let metaData = selectedLog.meta;
+                    if (typeof metaData === 'string') {
+                      try {
+                        metaData = JSON.parse(metaData);
+                      } catch (e) {
+                        // If parsing fails, keep as string
+                        return (
+                          <div className="flex flex-col">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-[#00b9ff]">meta</span>
+                              <button
+                                onClick={() => addFilterFromDrawer('meta', selectedLog.meta)}
+                                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                                title="Filter by this value"
+                              >
+                                Filter
+                              </button>
+                            </div>
+                            <div className="text-sm text-white break-words">
+                              {String(selectedLog.meta)}
+                            </div>
+                          </div>
+                        );
+                      }
+                    }
+                    
+                    // If meta is an object, display its properties as key-value pairs
+                    if (typeof metaData === 'object' && metaData !== null) {
+                      return Object.entries(metaData).map(([metaKey, metaValue]) => (
+                        <div key={`meta-${metaKey}`} className="flex flex-col">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-[#00b9ff]">{metaKey}</span>
+                            <button
+                              onClick={() => addFilterFromDrawer(`meta.${metaKey}`, metaValue)}
+                              className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                              title="Filter by this value"
+                            >
+                              Filter
+                            </button>
+                          </div>
+                          <div className="text-sm text-white break-words">
+                            {typeof metaValue === 'object' && metaValue !== null
+                              ? JSON.stringify(metaValue, null, 2)
+                              : String(metaValue)
+                            }
+                          </div>
+                        </div>
+                      ));
+                    }
+                    
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+            
             {/* Tags Section - All other attributes */}
             <div>
               <div className="text-xs text-[#00b9ff] mb-2">Tags</div>
               <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
                 {Object.entries(selectedLog).filter(([key]) =>
-                  !['id', 'timestamp', 'service', 'service_name', 'level', 'message'].includes(key)
-                ).map(([key, value]) => (
-                  <div key={key} className="flex flex-col">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-[#00b9ff]">{key}</span>
-                      <button
-                        onClick={() => addFilterFromDrawer(key, value)}
-                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
-                        title="Filter by this value"
-                      >
-                        Filter
-                      </button>
-                    </div>
-                    <div className="text-sm text-white break-words">
-                      {typeof value === 'object' && value !== null
-                        ? JSON.stringify(value, null, 2)
-                        : String(value)
+                  !['id', 'timestamp', 'service', 'service_name', 'level', 'message', 'meta'].includes(key)
+                ).map(([key, value]) => {
+                  // Try to parse value as JSON if it's a string
+                  let displayValue = value;
+                  if (typeof value === 'string') {
+                    try {
+                      // Check if the string looks like JSON
+                      if ((value.startsWith('{') && value.endsWith('}')) ||
+                          (value.startsWith('[') && value.endsWith(']'))) {
+                        const parsedValue = JSON.parse(value);
+                        if (typeof parsedValue === 'object' && parsedValue !== null) {
+                          // If it's a complex object, render nested key-value pairs
+                          return (
+                            <div key={key} className="flex flex-col">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-[#00b9ff] font-semibold">{key}</span>
+                                <button
+                                  onClick={() => addFilterFromDrawer(key, value)}
+                                  className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                                  title="Filter by this value"
+                                >
+                                  Filter
+                                </button>
+                              </div>
+                              <div className="ml-2 mt-1 space-y-1 border-l-2 border-[#333333] pl-2">
+                                {Object.entries(parsedValue).map(([nestedKey, nestedValue]) => (
+                                  <div key={`${key}-${nestedKey}`} className="flex flex-col">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-xs text-[#00b9ff]">{nestedKey}</span>
+                                      <button
+                                        onClick={() => addFilterFromDrawer(`${key}.${nestedKey}`, nestedValue)}
+                                        className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                                        title="Filter by this value"
+                                      >
+                                        Filter
+                                      </button>
+                                    </div>
+                                    <div className="text-sm text-white break-words">
+                                      {typeof nestedValue === 'object' && nestedValue !== null
+                                        ? JSON.stringify(nestedValue, null, 2)
+                                        : String(nestedValue)
+                                      }
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
                       }
+                    } catch (e) {
+                      // If parsing fails, use the original value
+                      displayValue = value;
+                    }
+                  }
+                  
+                  // Default rendering for non-JSON values
+                  return (
+                    <div key={key} className="flex flex-col">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[#00b9ff]">{key}</span>
+                        <button
+                          onClick={() => addFilterFromDrawer(key, displayValue)}
+                          className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
+                          title="Filter by this value"
+                        >
+                          Filter
+                        </button>
+                      </div>
+                      <div className="text-sm text-white break-words">
+                        {typeof displayValue === 'object' && displayValue !== null
+                          ? JSON.stringify(displayValue, null, 2)
+                          : String(displayValue)
+                        }
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

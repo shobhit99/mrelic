@@ -56,7 +56,7 @@ function addLog(log: any, headers?: Headers): LogEntry {
 export async function POST(request: NextRequest) {
   try {
     // Parse the request body
-    const body = await request.json();
+    let body = await request.json();
     
     // Get headers from the request
     const headers = request.headers;
@@ -66,8 +66,23 @@ export async function POST(request: NextRequest) {
     
     // Check if the body is an array or a single log entry
     if (Array.isArray(body)) {
+      body = body.map(log => {
+        if (log.meta && typeof log.meta === 'object') {
+          var meta = log.meta;
+          delete log.meta;
+          addLog(log, headers);
+          log = {...log, ...meta};
+        }
+        return log;
+      });
       logsToProcess = body;
     } else {
+      if (body.meta && typeof body.meta === 'object') {
+      var meta = body.meta;
+        delete body.meta;
+        addLog(body, headers);
+        body = {...body, ...meta};
+      }
       logsToProcess = [body];
     }
     
