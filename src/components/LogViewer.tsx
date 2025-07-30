@@ -207,7 +207,24 @@ const LogViewer: React.FC = () => {
     <div className="flex flex-col h-screen bg-[#151515] text-white relative">
       {/* Header - New Relic style */}
       <header className="bg-[#151515] p-2 border-b border-[#333333] flex justify-between items-center">
-        <h1 className="text-lg font-bold text-[#00b9ff]">All logs</h1>
+        <div className="flex items-center">
+          {/* Simple logo */}
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            className="mr-2"
+          >
+            <rect width="24" height="24" rx="4" fill="#00b9ff" />
+            <path
+              d="M6 12L10 8L14 12L18 8V16H6V12Z"
+              fill="white"
+              stroke="white"
+              strokeWidth="1"
+            />
+          </svg>
+          <h1 className="text-lg font-bold text-[#00b9ff]">mRelic</h1>
+        </div>
         <div className="flex items-center space-x-3">
           <div className="flex items-center">
             <span className={`w-2 h-2 rounded-full mr-1 ${isConnected ? 'bg-[#13ba00]' : 'bg-[#ff0000]'}`}></span>
@@ -537,7 +554,23 @@ const LogViewer: React.FC = () => {
       {drawerOpen && selectedLog && (
         <div className="fixed inset-y-0 right-0 w-1/3 bg-[#222222] border-l border-[#333333] shadow-lg overflow-auto z-10">
           <div className="sticky top-0 bg-[#222222] p-3 border-b border-[#333333] flex justify-between items-center">
-            <h3 className="text-sm font-semibold text-[#00b9ff]">Log Details</h3>
+            <div className="flex items-center">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                className="mr-2"
+              >
+                <rect width="24" height="24" rx="4" fill="#00b9ff" />
+                <path
+                  d="M6 12L10 8L14 12L18 8V16H6V12Z"
+                  fill="white"
+                  stroke="white"
+                  strokeWidth="1"
+                />
+              </svg>
+              <h3 className="text-sm font-semibold text-[#00b9ff]">mRelic Log Details</h3>
+            </div>
             <button
               onClick={closeDrawer}
               className="text-gray-400 hover:text-white"

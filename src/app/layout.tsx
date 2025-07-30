@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Logs - New Relic",
+  title: "mRelic - Log Viewer",
   description: "A real-time log viewer for OpenTelemetry logs in New Relic style",
 };
 
