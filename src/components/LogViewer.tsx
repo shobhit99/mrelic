@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DatePicker, ConfigProvider, theme } from 'antd';
+import dayjs, { Dayjs } from 'dayjs';
 
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
@@ -13,7 +15,101 @@ const LogViewer: React.FC = () => {
   const [autoScroll, setAutoScroll] = useState(false); // Default to false as requested
   const [levels, setLevels] = useState<string[]>([]);
   const [services, setServices] = useState<string[]>([]);
-  const [filters, setFilters] = useState({ search: '', level: '', service: '' });
+  const [filters, setFilters] = useState({ 
+    search: '', 
+    level: '', 
+    service: '', 
+    dateRange: '15m',
+    startDate: undefined as string | undefined,
+    endDate: undefined as string | undefined
+  });
+  
+  // Date range state
+  const [dateRange, setDateRange] = useState('15m');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showCustomDate, setShowCustomDate] = useState(false);
+
+  // Date range presets
+  const dateRangePresets = [
+    { value: '15m', label: 'Last 15 minutes' },
+    { value: '30m', label: 'Last 30 minutes' },
+    { value: '1h', label: 'Last 1 hour' },
+    { value: '4h', label: 'Last 4 hours' },
+    { value: '24h', label: 'Last 24 hours' },
+    { value: '7d', label: 'Last 7 days' },
+    { value: '30d', label: 'Last 30 days' },
+    { value: 'custom', label: 'Custom range' }
+  ];
+
+  // Helper function to get date range values
+  const getDateRangeValues = () => {
+    if (dateRange === 'custom') {
+      // For custom range, validate that both dates are set and valid
+      if (!customStartDate || !customEndDate) {
+        // Fall back to default 15m range if custom dates are not properly set
+        const now = dayjs();
+        const startDate = now.subtract(15, 'minute');
+        return {
+          startDate: startDate.toISOString(),
+          endDate: now.toISOString()
+        };
+      }
+      
+      // Validate that the custom dates are valid
+      const start = dayjs(customStartDate);
+      const end = dayjs(customEndDate);
+      
+      if (!start.isValid() || !end.isValid() || start.isAfter(end) || start.isSame(end)) {
+        // Fall back to default if dates are invalid
+        const now = dayjs();
+        const startDate = now.subtract(15, 'minute');
+        return {
+          startDate: startDate.toISOString(),
+          endDate: now.toISOString()
+        };
+      }
+      
+      return {
+        startDate: customStartDate,
+        endDate: customEndDate
+      };
+    }
+    
+    const now = dayjs();
+    let startDate = now;
+    
+    switch (dateRange) {
+      case '15m':
+        startDate = now.subtract(15, 'minute');
+        break;
+      case '30m':
+        startDate = now.subtract(30, 'minute');
+        break;
+      case '1h':
+        startDate = now.subtract(1, 'hour');
+        break;
+      case '4h':
+        startDate = now.subtract(4, 'hour');
+        break;
+      case '24h':
+        startDate = now.subtract(1, 'day');
+        break;
+      case '7d':
+        startDate = now.subtract(7, 'day');
+        break;
+      case '30d':
+        startDate = now.subtract(30, 'day');
+        break;
+      default:
+        startDate = now.subtract(15, 'minute');
+    }
+    
+    return {
+      startDate: startDate.toISOString(),
+      endDate: now.toISOString()
+    };
+  };
   const [isPolling, setIsPolling] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(['timestamp', 'service', 'level', 'message']);
@@ -25,13 +121,22 @@ const LogViewer: React.FC = () => {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch logs from the server with search parameters
-  const fetchLogs = async (searchFilters?: { search?: string; level?: string; service?: string }) => {
+  const fetchLogs = async (searchFilters?: { 
+    search?: string; 
+    level?: string; 
+    service?: string;
+    dateRange?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
     try {
       // Build query parameters
       const params = new URLSearchParams();
       if (searchFilters?.search) params.append('query', searchFilters.search);
       if (searchFilters?.level) params.append('level', searchFilters.level);
       if (searchFilters?.service) params.append('service', searchFilters.service);
+      if (searchFilters?.startDate) params.append('startDate', searchFilters.startDate);
+      if (searchFilters?.endDate) params.append('endDate', searchFilters.endDate);
       
       const url = `/api/otel${params.toString() ? '?' + params.toString() : ''}`;
       const response = await fetch(url);
@@ -62,12 +167,25 @@ const LogViewer: React.FC = () => {
 
   // Set up polling for logs
   useEffect(() => {
-    // Fetch logs immediately with current filters
-    fetchLogs(filters);
+    // Get initial date range values and fetch logs
+    const dateValues = getDateRangeValues();
+    const initialFilters = {
+      ...filters,
+      ...dateValues
+    };
+    
+    fetchLogs(initialFilters);
     
     // Set up polling interval
     if (isPolling) {
-      pollingIntervalRef.current = setInterval(() => fetchLogs(filters), 2000); // Poll every 2 seconds
+      pollingIntervalRef.current = setInterval(() => {
+        const currentDateValues = getDateRangeValues();
+        const currentFilters = {
+          ...filters,
+          ...currentDateValues
+        };
+        fetchLogs(currentFilters);
+      }, 2000); // Poll every 2 seconds
     }
     
     // Clean up on unmount
@@ -76,7 +194,7 @@ const LogViewer: React.FC = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling, filters]);
+  }, [isPolling, filters, dateRange]);
 
   // We no longer need client-side filtering since we're doing it on the server
   // Remove the useEffect for extracting levels/services and applying filters
@@ -135,12 +253,138 @@ const LogViewer: React.FC = () => {
   };
 
   // Handle filter changes - now triggers API call
-  const handleFilterChange = (newFilters: { search: string; level: string; service: string }) => {
+  const handleFilterChange = (newFilters: { 
+    search: string; 
+    level: string; 
+    service: string;
+  }) => {
     console.log("Filter changed:", newFilters);
-    setFilters(newFilters);
+    
+    // Get current date range values
+    const dateValues = getDateRangeValues();
+    
+    const combinedFilters = {
+      ...newFilters,
+      dateRange,
+      ...dateValues
+    };
+    
+    setFilters({
+      search: combinedFilters.search,
+      level: combinedFilters.level,
+      service: combinedFilters.service,
+      dateRange: combinedFilters.dateRange,
+      startDate: combinedFilters.startDate,
+      endDate: combinedFilters.endDate
+    });
     
     // Fetch logs with new filters from API
-    fetchLogs(newFilters);
+    fetchLogs(combinedFilters);
+  };
+
+  // Handle date range changes
+  const handleDateRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newDateRange = e.target.value;
+    setDateRange(newDateRange);
+    setShowCustomDate(newDateRange === 'custom');
+    
+    // Initialize custom dates with reasonable defaults when switching to custom
+    if (newDateRange === 'custom' && (!customStartDate || !customEndDate)) {
+      const now = dayjs();
+      const oneHourAgo = now.subtract(1, 'hour');
+      
+      setCustomStartDate(oneHourAgo.toISOString());
+      setCustomEndDate(now.toISOString());
+      
+      // Don't trigger search immediately for custom range - wait for user to set dates
+      return;
+    }
+    
+    // Trigger search immediately for date range changes
+    if (newDateRange !== 'custom') {
+      const now = new Date();
+      const startDate = new Date();
+      
+      switch (newDateRange) {
+        case '15m':
+          startDate.setMinutes(now.getMinutes() - 15);
+          break;
+        case '30m':
+          startDate.setMinutes(now.getMinutes() - 30);
+          break;
+        case '1h':
+          startDate.setHours(now.getHours() - 1);
+          break;
+        case '4h':
+          startDate.setHours(now.getHours() - 4);
+          break;
+        case '24h':
+          startDate.setDate(now.getDate() - 1);
+          break;
+        case '7d':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case '30d':
+          startDate.setDate(now.getDate() - 30);
+          break;
+        default:
+          startDate.setMinutes(now.getMinutes() - 15);
+      }
+      
+      const dateValues = {
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString()
+      };
+      
+      const combinedFilters = {
+        search: filters.search,
+        level: filters.level,
+        service: filters.service,
+        dateRange: newDateRange,
+        ...dateValues
+      };
+      
+      setFilters({
+        search: combinedFilters.search,
+        level: combinedFilters.level,
+        service: combinedFilters.service,
+        dateRange: combinedFilters.dateRange,
+        startDate: combinedFilters.startDate,
+        endDate: combinedFilters.endDate
+      });
+      
+      fetchLogs(combinedFilters);
+    }
+  };
+
+  const handleCustomDateChange = () => {
+    if (dateRange === 'custom' && customStartDate && customEndDate) {
+      // Validate dates before using them
+      const start = dayjs(customStartDate);
+      const end = dayjs(customEndDate);
+      
+      if (start.isValid() && end.isValid() && start.isBefore(end)) {
+        const combinedFilters = {
+          search: filters.search,
+          level: filters.level,
+          service: filters.service,
+          dateRange,
+          startDate: customStartDate,
+          endDate: customEndDate
+        };
+        
+        setFilters({
+          search: combinedFilters.search,
+          level: combinedFilters.level,
+          service: combinedFilters.service,
+          dateRange: combinedFilters.dateRange,
+          startDate: combinedFilters.startDate,
+          endDate: combinedFilters.endDate
+        });
+        
+        fetchLogs(combinedFilters);
+      }
+    }
   };
 
   // Clear all logs
@@ -176,6 +420,76 @@ const LogViewer: React.FC = () => {
           <h1 className="text-lg font-bold text-[#00b9ff]">mRelic</h1>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Date Range Filter - New Relic style in header */}
+          <div className="flex items-center gap-2">
+            <select
+              className="px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff] min-w-[140px]"
+              value={dateRange}
+              onChange={handleDateRangeChange}
+            >
+              {dateRangePresets.map(preset => (
+                <option key={preset.value} value={preset.value}>{preset.label}</option>
+              ))}
+            </select>
+            
+            {showCustomDate && (
+              <ConfigProvider
+                theme={{
+                  algorithm: theme.darkAlgorithm,
+                  token: {
+                    colorPrimary: '#00b9ff',
+                    colorBgBase: '#222222',
+                    colorTextBase: '#e5e7eb',
+                    colorBorder: '#333333',
+                  },
+                }}
+              >
+                <DatePicker
+                  showTime={{ format: 'HH:mm' }}
+                  format="MMM D, YYYY HH:mm"
+                  value={customStartDate ? dayjs(customStartDate) : null}
+                  onChange={(date: Dayjs | null) => {
+                    if (date) {
+                      setCustomStartDate(date.toISOString());
+                      // Only trigger change if both dates are set and valid
+                      if (customEndDate && dayjs(customEndDate).isValid() && date.isBefore(dayjs(customEndDate))) {
+                        setTimeout(handleCustomDateChange, 100);
+                      }
+                    }
+                  }}
+                  placeholder="From date"
+                  size="small"
+                  style={{ width: 160 }}
+                  disabledDate={(current) => 
+                    customEndDate ? current && current.isAfter(dayjs(customEndDate)) : false
+                  }
+                />
+                <DatePicker
+                  showTime={{ format: 'HH:mm' }}
+                  format="MMM D, YYYY HH:mm"
+                  value={customEndDate ? dayjs(customEndDate) : null}
+                  onChange={(date: Dayjs | null) => {
+                    if (date) {
+                      setCustomEndDate(date.toISOString());
+                      // Only trigger change if both dates are set and valid
+                      if (customStartDate && dayjs(customStartDate).isValid() && date.isAfter(dayjs(customStartDate))) {
+                        setTimeout(handleCustomDateChange, 100);
+                      }
+                    }
+                  }}
+                  placeholder="To date"
+                  size="small"
+                  style={{ width: 160 }}
+                  disabledDate={(current) => 
+                    customStartDate ? current && current.isBefore(dayjs(customStartDate)) : false
+                  }
+                />
+              </ConfigProvider>
+            )}
+          </div>
+          
+          <div className="h-4 w-px bg-[#333333]"></div>
+          
           <div className="flex items-center">
             <span className={`w-2 h-2 rounded-full mr-1 ${isConnected ? 'bg-[#13ba00]' : 'bg-[#ff0000]'}`}></span>
             <span className="text-xs text-gray-300">{isConnected ? 'Connected' : 'Disconnected'}</span>
@@ -227,50 +541,114 @@ const LogViewer: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={(() => {
-                  // Group logs by time intervals
+                  // Use filtered logs instead of all logs for the graph
+                  const logsToGraph = filteredLogs.length > 0 ? filteredLogs : [];
+                  
+                  if (logsToGraph.length === 0) {
+                    return [];
+                  }
+                  
+                  // Group logs by time intervals based on the current date range
                   const timeIntervals: { [key: string]: number } = {};
                   
-                  // Initialize with at least 10 time points if we have logs
-                  if (logs.length > 0) {
-                    const oldestLog = new Date(logs[0].timestamp);
-                    const newestLog = new Date(logs[logs.length - 1].timestamp);
-                    const timeRange = newestLog.getTime() - oldestLog.getTime();
-                    const interval = Math.max(60000, Math.floor(timeRange / 10)); // At least 1 minute
-                    
-                    for (let time = oldestLog.getTime(); time <= newestLog.getTime(); time += interval) {
+                  // Determine time interval based on date range
+                  let intervalMs = 60000; // Default 1 minute
+                  switch (dateRange) {
+                    case '15m':
+                    case '30m':
+                      intervalMs = 60000; // 1 minute intervals
+                      break;
+                    case '1h':
+                      intervalMs = 300000; // 5 minute intervals
+                      break;
+                    case '4h':
+                      intervalMs = 900000; // 15 minute intervals
+                      break;
+                    case '24h':
+                      intervalMs = 3600000; // 1 hour intervals
+                      break;
+                    case '7d':
+                      intervalMs = 21600000; // 6 hour intervals
+                      break;
+                    case '30d':
+                      intervalMs = 86400000; // 1 day intervals
+                      break;
+                    default:
+                      intervalMs = 60000;
+                  }
+                  
+                  // Get time range bounds
+                  const dateValues = getDateRangeValues();
+                  
+                  // Validate date values
+                  if (!dateValues.startDate || !dateValues.endDate) {
+                    return [];
+                  }
+                  
+                  const startTime = new Date(dateValues.startDate).getTime();
+                  const endTime = new Date(dateValues.endDate).getTime();
+                  
+                  // Check if dates are valid
+                  if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+                    return [];
+                  }
+                  
+                  // Initialize time intervals
+                  for (let time = startTime; time <= endTime; time += intervalMs) {
+                    if (!isNaN(time)) {
                       const timeKey = new Date(time).toISOString();
                       timeIntervals[timeKey] = 0;
                     }
                   }
                   
                   // Count logs for each time interval
-                  logs.forEach(log => {
-                    const logTime = new Date(log.timestamp);
-                    // Find the closest time interval
-                    const timeKeys = Object.keys(timeIntervals);
-                    if (timeKeys.length === 0) {
-                      // If no intervals yet, create one
-                      const timeKey = logTime.toISOString();
-                      timeIntervals[timeKey] = 0;
+                  logsToGraph.forEach(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    
+                    if (!isNaN(logTime)) {
+                      // Find the appropriate time bucket
+                      const bucketTime = Math.floor((logTime - startTime) / intervalMs) * intervalMs + startTime;
+                      
+                      if (!isNaN(bucketTime)) {
+                        const timeKey = new Date(bucketTime).toISOString();
+                        
+                        if (timeIntervals[timeKey] !== undefined) {
+                          timeIntervals[timeKey]++;
+                        }
+                      }
                     }
-                    
-                    const closestTimeKey = timeKeys.reduce((prev, curr) => {
-                      const prevDiff = Math.abs(new Date(prev).getTime() - logTime.getTime());
-                      const currDiff = Math.abs(new Date(curr).getTime() - logTime.getTime());
-                      return prevDiff < currDiff ? prev : curr;
-                    }, timeKeys[0]);
-                    
-                    timeIntervals[closestTimeKey]++;
                   });
                   
-                  // Convert to array for Recharts
-                  return Object.keys(timeIntervals).map(time => {
-                    const formattedTime = new Date(time).toLocaleTimeString();
-                    return {
-                      time: formattedTime,
-                      count: timeIntervals[time]
-                    };
-                  });
+                  // Convert to array for Recharts and sort by time
+                  return Object.keys(timeIntervals)
+                    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                    .map(time => {
+                      const date = new Date(time);
+                      let formattedTime;
+                      
+                      // Format time based on interval
+                      if (intervalMs >= 86400000) {
+                        formattedTime = date.toLocaleDateString(); // Date only for day intervals
+                      } else if (intervalMs >= 3600000) {
+                        formattedTime = date.toLocaleString([], { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        });
+                      } else {
+                        formattedTime = date.toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        });
+                      }
+                      
+                      return {
+                        time: formattedTime,
+                        count: timeIntervals[time],
+                        fullTime: time
+                      };
+                    });
                 })()}
                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
               >

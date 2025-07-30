@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('query') || '';
     const level = searchParams.get('level') || '';
     const service = searchParams.get('service') || '';
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
     const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
     
@@ -69,6 +71,8 @@ export async function GET(request: NextRequest) {
     if (query) filters.query = query;
     if (level) filters.level = level;
     if (service) filters.service = service;
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
     if (limit) filters.limit = limit;
     if (offset) filters.offset = offset;
     

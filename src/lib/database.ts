@@ -89,6 +89,8 @@ class DatabaseService {
     query?: string;
     level?: string;
     service?: string;
+    startDate?: string;
+    endDate?: string;
     limit?: number;
     offset?: number;
   } = {}): LogEntry[] {
@@ -109,6 +111,17 @@ class DatabaseService {
     if (filters.service) {
       conditions.push('service = ?');
       params.push(filters.service);
+    }
+    
+    // Add date range filters
+    if (filters.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate);
+    }
+    
+    if (filters.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate);
     }
     
     // For advanced queries, we'll fetch all matching level/service records and filter in memory
@@ -205,6 +218,8 @@ class DatabaseService {
     query?: string;
     level?: string;
     service?: string;
+    startDate?: string;
+    endDate?: string;
   } = {}): number {
     // For advanced queries, we need to get the actual filtered results to count them
     if (filters.query && this.isAdvancedQuery(filters.query)) {
@@ -227,6 +242,17 @@ class DatabaseService {
     if (filters.service) {
       conditions.push('service = ?');
       params.push(filters.service);
+    }
+    
+    // Add date range filters
+    if (filters.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate);
+    }
+    
+    if (filters.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate);
     }
     
     if (filters.query) {
