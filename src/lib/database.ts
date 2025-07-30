@@ -47,15 +47,45 @@ class DatabaseService {
       }
     }
     
-    // Create a log entry with a unique ID
+    // Convert timestamp to ISO string - handle all formats properly
+    let logTimestamp;
+    if (log.timestamp) {
+      if (typeof log.timestamp === 'number') {
+        // Convert milliseconds to ISO string
+        logTimestamp = new Date(log.timestamp).toISOString();
+      } else if (typeof log.timestamp === 'string') {
+        // If already a string, check if it's ISO format or needs conversion
+        if (log.timestamp.includes('-')) {
+          logTimestamp = log.timestamp;
+        } else {
+          // String number, convert to ISO
+          const numTimestamp = parseFloat(log.timestamp);
+          logTimestamp = new Date(numTimestamp).toISOString();
+        }
+      } else {
+        logTimestamp = new Date().toISOString();
+      }
+    } else {
+      logTimestamp = new Date().toISOString();
+    }
+
+
+
+    // Create a log entry with a unique ID - DO NOT spread log after setting timestamp
     const logEntry: LogEntry = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      timestamp: log.timestamp || new Date().toISOString(),
+      timestamp: logTimestamp,
       message: logMessage,
       level: log.level || log.severity || 'info',
-      service: serviceName || 'system',
-      ...log // Include all other properties
+      service: serviceName || 'system'
     };
+
+    // Add other properties from log except timestamp (to avoid overwriting)
+    Object.keys(log).forEach(key => {
+      if (key !== 'timestamp' && key !== 'message' && key !== 'level' && key !== 'service') {
+        logEntry[key] = log[key];
+      }
+    });
 
     // Separate the core fields from additional data
     const { id, timestamp, message: entryMessage, level, service, ...additionalData } = logEntry;

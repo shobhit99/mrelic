@@ -6,7 +6,6 @@ export async function POST(request: NextRequest) {
   try {
     // Parse the request body
     let body = await request.json();
-    
     // Get headers from the request
     const headers = request.headers;
     
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
         if (log.meta && typeof log.meta === 'object') {
           const meta = log.meta;
           delete log.meta;
-          databaseService.addLog(log, headers);
           log = {...log, ...meta};
         }
         return log;
@@ -29,7 +27,6 @@ export async function POST(request: NextRequest) {
       if (body.meta && typeof body.meta === 'object') {
         const meta = body.meta;
         delete body.meta;
-        databaseService.addLog(body, headers);
         body = {...body, ...meta};
       }
       logsToProcess = [body];
