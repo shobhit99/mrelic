@@ -11,6 +11,24 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Check if fluent-bit is installed
+if ! command -v fluent-bit > /dev/null 2>&1; then
+    echo "📦 Fluent-bit not found. Installing via Homebrew..."
+    
+    # Check if brew is installed
+    if ! command -v brew > /dev/null 2>&1; then
+        echo "❌ Homebrew is not installed. Please install Homebrew first:"
+        echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        exit 1
+    fi
+    
+    # Install fluent-bit
+    brew install fluent-bit
+    echo "✅ Fluent-bit installed successfully!"
+else
+    echo "✅ Fluent-bit is already installed"
+fi
+
 # Build the image
 echo "📦 Building mrelic Docker image..."
 docker build -f Dockerfile.mrelic -t repo/mrelic .

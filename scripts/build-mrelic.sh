@@ -4,6 +4,24 @@ set -e
 
 echo "Setting up mrelic command on host system..."
 
+# Check if fluent-bit is installed
+if ! command -v fluent-bit > /dev/null 2>&1; then
+    echo "📦 Fluent-bit not found. Installing via Homebrew..."
+    
+    # Check if brew is installed
+    if ! command -v brew > /dev/null 2>&1; then
+        echo "❌ Homebrew is not installed. Please install Homebrew first:"
+        echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        exit 1
+    fi
+    
+    # Install fluent-bit
+    brew install fluent-bit
+    echo "✅ Fluent-bit installed successfully!"
+else
+    echo "✅ Fluent-bit is already installed"
+fi
+
 # Create the mrelic wrapper script
 # Get the current project directory
 PROJECT_PATH="$(pwd)"
