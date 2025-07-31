@@ -42,7 +42,7 @@ if [ ! -f "$FLUENT_CONFIG_DIR/template.conf" ]; then
     Name         http
     Match        *
     Host         localhost
-    Port         3000
+    Port         5959
     URI          /api/otel
     Format       json
     Header       Content-Type application/json
@@ -56,7 +56,7 @@ fi
 # Generate service-specific config
 sed "s/SERVICE_NAME_PLACEHOLDER/$SERVICE_NAME/g" "$FLUENT_CONFIG_DIR/template.conf" > "$TEMP_CONFIG"
 
-echo "📡 Connecting to mrelic server on port 3000"
+echo "📡 Connecting to mrelic server on port 5959"
 echo "🏷️  Service: $SERVICE_NAME"
 echo "📝 Using config: $TEMP_CONFIG"
 
@@ -86,6 +86,6 @@ echo "   go run main.go | mrelic"
 echo "   # or"
 echo "   mrelic go run main.go"
 echo ""
-echo "3. View logs at: http://localhost:3000"
+echo "3. View logs at: http://localhost:5959"
 echo ""
 echo "📝 Note: This requires fluent-bit to be installed on your system" 
