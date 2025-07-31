@@ -2,35 +2,73 @@
 
 set -e
 
-echo "Building mrelic Docker image..."
-docker build -f Dockerfile.mrelic -t repo/mrelic .
-
 echo "Setting up mrelic command on host system..."
 
 # Create the mrelic wrapper script
 sudo tee /usr/local/bin/mrelic > /dev/null << 'EOF'
 #!/bin/sh
 
-# Check if the mrelic server container is running
-CONTAINER_ID=$(docker ps -q -f name=mrelic-server)
+# Get current directory name as service name
+SERVICE_NAME=$(basename "$(pwd)")
 
-if [ -z "$CONTAINER_ID" ]; then
-    echo "Error: mrelic server container is not running!"
-    echo "Start it with: docker run -d --name mrelic-server -p 3000:3000 -v ~/Documents:/data repo/mrelic"
-    exit 1
+# Define fluent-bit config directory (adjust path as needed)
+FLUENT_CONFIG_DIR="$HOME/fluent-bit"
+
+# Create config directory if it doesn't exist
+mkdir -p "$FLUENT_CONFIG_DIR"
+
+# Generate dynamic fluent-bit config for this service
+TEMP_CONFIG="$FLUENT_CONFIG_DIR/$SERVICE_NAME.conf"
+
+# Create the fluent-bit config template if it doesn't exist
+if [ ! -f "$FLUENT_CONFIG_DIR/template.conf" ]; then
+    cat > "$FLUENT_CONFIG_DIR/template.conf" << 'TEMPLATE_EOF'
+[SERVICE]
+    Flush        1
+    Daemon       Off
+    Log_Level    info
+
+[INPUT]
+    Name         stdin
+    Tag          console.log
+    Parser       json
+
+[OUTPUT]
+    Name         stdout
+    Match        *
+    Format       json_lines
+
+[OUTPUT]
+    Name         http
+    Match        *
+    Host         localhost
+    Port         3000
+    URI          /api/otel
+    Format       json
+    Header       Content-Type application/json
+    Header       service.name SERVICE_NAME_PLACEHOLDER
+    Tls          off
+    Tls.Verify   off
+    log_response_payload true
+TEMPLATE_EOF
 fi
 
-# Get the server port from the running container
-SERVER_PORT=$(docker port mrelic-server 3000/tcp | cut -d: -f2)
-SERVER_PORT=${SERVER_PORT:-3000}
+# Generate service-specific config
+sed "s/SERVICE_NAME_PLACEHOLDER/$SERVICE_NAME/g" "$FLUENT_CONFIG_DIR/template.conf" > "$TEMP_CONFIG"
 
-# Run fluent-bit in a temporary container that connects to the server
-docker run --rm -i --network host \
-  -e MRELIC_HOST=localhost \
-  -e MRELIC_PORT=$SERVER_PORT \
-  -v "$(pwd):/workdir" \
-  -w /workdir \
-  repo/mrelic /usr/local/bin/mrelic
+echo "📡 Connecting to mrelic server on port 3000"
+echo "🏷️  Service: $SERVICE_NAME"
+echo "📝 Using config: $TEMP_CONFIG"
+
+# Check if we have arguments (command to run) or should read from stdin
+if [ $# -gt 0 ]; then
+    echo "🚀 Running: $*"
+    # Run the command and pipe directly to fluent-bit with generated config
+    eval "$* 2>&1" | fluent-bit -vv -c "$TEMP_CONFIG"
+else
+    # Read from stdin (original behavior)
+    fluent-bit -vv -c "$TEMP_CONFIG"
+fi
 EOF
 
 sudo chmod +x /usr/local/bin/mrelic
@@ -40,13 +78,14 @@ echo "✅ Build complete!"
 echo ""
 echo "🚀 To get started:"
 echo "1. Start the mrelic server:"
-echo "   docker run -d --name mrelic-server -p 3000:3000 -v ~/Documents:/data repo/mrelic"
+echo "   npm start"
 echo ""
 echo "2. Use mrelic in any project directory:"
 echo "   cd your-service-directory"
 echo "   go run main.go | mrelic"
+echo "   # or"
+echo "   mrelic go run main.go"
 echo ""
 echo "3. View logs at: http://localhost:3000"
 echo ""
-echo "📝 To customize port or database location:"
-echo "   docker run -d --name mrelic-server -p 8080:8080 -v ~/Documents:/data repo/mrelic --port 8080 --db /data/custom.db" 
+echo "📝 Note: This requires fluent-bit to be installed on your system" 
