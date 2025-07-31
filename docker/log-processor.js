@@ -3,11 +3,54 @@
 const http = require('http');
 const readline = require('readline');
 const path = require('path');
+const fs = require('fs');
 
-// Get configuration from environment variables or command line arguments
-const serverHost = process.env.MRELIC_HOST || 'localhost';
-const serverPort = process.env.MRELIC_PORT || '3000';
-const serviceName = process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
+// Function to parse fluent-bit config file
+function parseFluentConfig(configPath) {
+  try {
+    const config = fs.readFileSync(configPath, 'utf8');
+    const lines = config.split('\n');
+    
+    let serverHost = 'localhost';
+    let serverPort = '3000';
+    let serviceName = 'unknown-service';
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('Host ')) {
+        serverHost = trimmed.split(/\s+/)[1];
+      } else if (trimmed.startsWith('Port ')) {
+        serverPort = trimmed.split(/\s+/)[1];
+      } else if (trimmed.startsWith('Header       service.name ')) {
+        serviceName = trimmed.split(/\s+/)[2];
+      }
+    }
+    
+    return { serverHost, serverPort, serviceName };
+  } catch (error) {
+    console.error('Error reading fluent config:', error.message);
+    return null;
+  }
+}
+
+// Get configuration from command line arguments or environment variables
+let serverHost = process.env.MRELIC_HOST || 'localhost';
+let serverPort = process.env.MRELIC_PORT || '3000';
+let serviceName = process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
+
+// Check if we have a fluent-bit config file path as argument
+if (process.argv[2] && process.argv[2].endsWith('.conf')) {
+  const configPath = process.argv[2];
+  const configData = parseFluentConfig(configPath);
+  if (configData) {
+    serverHost = configData.serverHost;
+    serverPort = configData.serverPort;
+    serviceName = configData.serviceName;
+  }
+} else if (process.argv[3]) {
+  // If second argument exists, use it as service name
+  serviceName = process.argv[3];
+}
 
 console.log(`📡 Connecting to mrelic server on port ${serverPort}`);
 console.log(`🏷️  Service: ${serviceName}`);
@@ -67,9 +110,6 @@ rl.on('line', (line) => {
     // Send to server
     sendLogToServer(formattedLog);
 
-    // Also output to stdout for debugging
-    console.log(JSON.stringify(formattedLog));
-
   } catch (error) {
     console.error('Error processing log line:', error);
   }
@@ -83,7 +123,7 @@ rl.on('close', () => {
 // Function to send log to server
 function sendLogToServer(logData) {
   const postData = JSON.stringify(logData);
-  
+
   const options = {
     hostname: serverHost,
     port: parseInt(serverPort),
