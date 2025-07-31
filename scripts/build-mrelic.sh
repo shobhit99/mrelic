@@ -39,6 +39,8 @@ if [ ! -f "\$FLUENT_CONFIG_DIR/template.conf" ]; then
     Flush        1
     Daemon       Off
     Log_Level    info
+    Parsers_File parsers.conf
+    Scripts_File format_json.lua
 
 [INPUT]
     Name         stdin
