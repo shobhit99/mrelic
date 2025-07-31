@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Search, X } from 'lucide-react';
+
+const NEW_RELIC_GREEN = '#22c55e';
 
 interface LogFilterProps {
   onFilterChange: (filters: {
@@ -8,7 +11,7 @@ interface LogFilterProps {
   }) => void;
   levels: string[];
   services: string[];
-  search?: string; // Optional search prop to sync with external state
+  search?: string;
 }
 
 const LogFilter: React.FC<LogFilterProps> = (props) => {
@@ -20,24 +23,24 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearch = e.target.value;
     setSearch(newSearch);
-    // Don't trigger search automatically anymore
   };
 
   const handleSearchClick = () => {
-    // Trigger search when button is clicked
     onFilterChange({ search, level, service });
+  };
+  
+  const clearSearch = () => {
+    setSearch('');
+    onFilterChange({ search: '', level, service });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Trigger search when Enter is pressed
     if (e.key === 'Enter') {
       handleSearchClick();
     }
   };
   
-  // Update local state when props change
   useEffect(() => {
-    // If the search prop changes from outside (e.g., from the drawer filter)
     if (search !== props.search && props.search !== undefined) {
       setSearch(props.search);
     }
@@ -46,14 +49,12 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   const handleLevelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLevel = e.target.value;
     setLevel(newLevel);
-    // Trigger search immediately for filters
     onFilterChange({ search, level: newLevel, service });
   };
 
   const handleServiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newService = e.target.value;
     setService(newService);
-    // Trigger search immediately for filters
     onFilterChange({ search, level, service: newService });
   };
 
@@ -67,25 +68,34 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   return (
     <div className="bg-[#151515] p-2 border-b border-[#333333]">
         <div className="flex flex-wrap gap-2 items-center">
-          {/* Larger search bar like New Relic */}
           <div className="flex-grow w-full mb-2">
             <div className="relative flex">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Search size={16} color={'#0e74df'} />
               </div>
               <input
                 type="text"
-                className="flex-grow pl-10 pr-4 py-2 bg-[#222222] border border-[#333333] rounded-l text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+                className="flex-grow pl-10 pr-10 py-2 bg-[#222222] border border-[#333333] rounded-l text-sm text-gray-200 focus:outline-none"
                 placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
                 value={search}
                 onChange={handleSearchChange}
                 onKeyPress={handleKeyPress}
               />
+              {search && (
+                <div className="absolute inset-y-0 right-28 flex items-center pr-3">
+                    <button
+                        onClick={clearSearch}
+                        className="text-gray-400 hover:text-white"
+                        title="Clear search"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+              )}
               <button
                 onClick={handleSearchClick}
-                className="px-4 py-2 bg-[#00b9ff] hover:bg-[#0099cc] text-white text-sm rounded-r focus:outline-none focus:ring-1 focus:ring-[#00b9ff] transition-colors"
+                className="px-4 py-2 text-white text-sm rounded-r focus:outline-none focus:ring-1 transition-colors hover:bg-[#36a3ff] hover:text-white cursor-pointer"
+                style={{ backgroundColor: '#0e74df',  borderColor: '#0e74df'}}
               >
                 Search
               </button>

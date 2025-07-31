@@ -6,13 +6,16 @@ import { LogEntry as LogEntryType } from '@/lib/logStore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DatePicker, ConfigProvider, theme } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
+import { FilterIcon } from 'lucide-react';
+
+const NEW_RELIC_GREEN = '#22c55e'; // A nice green similar to New Relic's
 
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
 
   const [isConnected, setIsConnected] = useState(true);
-  const [autoScroll, setAutoScroll] = useState(false); // Default to false as requested
+  const [autoScroll, setAutoScroll] = useState(false);
   const [levels, setLevels] = useState<string[]>([]);
   const [services, setServices] = useState<string[]>([]);
   const [filters, setFilters] = useState({ 
@@ -24,13 +27,11 @@ const LogViewer: React.FC = () => {
     endDate: undefined as string | undefined
   });
   
-  // Date range state
   const [dateRange, setDateRange] = useState('15m');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
 
-  // Date range presets
   const dateRangePresets = [
     { value: '15m', label: 'Last 15 minutes' },
     { value: '30m', label: 'Last 30 minutes' },
@@ -42,12 +43,9 @@ const LogViewer: React.FC = () => {
     { value: 'custom', label: 'Custom range' }
   ];
 
-  // Helper function to get date range values
   const getDateRangeValues = () => {
     if (dateRange === 'custom') {
-      // For custom range, validate that both dates are set and valid
       if (!customStartDate || !customEndDate) {
-        // Fall back to default 15m range if custom dates are not properly set
         const now = dayjs();
         const startDate = now.subtract(15, 'minute');
         return {
@@ -56,12 +54,10 @@ const LogViewer: React.FC = () => {
         };
       }
       
-      // Validate that the custom dates are valid
       const start = dayjs(customStartDate);
       const end = dayjs(customEndDate);
       
       if (!start.isValid() || !end.isValid() || start.isAfter(end) || start.isSame(end)) {
-        // Fall back to default if dates are invalid
         const now = dayjs();
         const startDate = now.subtract(15, 'minute');
         return {
@@ -120,7 +116,6 @@ const LogViewer: React.FC = () => {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch logs from the server with search parameters
   const fetchLogs = async (searchFilters?: { 
     search?: string; 
     level?: string; 
@@ -130,7 +125,6 @@ const LogViewer: React.FC = () => {
     endDate?: string;
   }) => {
     try {
-      // Build query parameters
       const params = new URLSearchParams();
       if (searchFilters?.search) params.append('query', searchFilters.search);
       if (searchFilters?.level) params.append('level', searchFilters.level);
@@ -146,14 +140,12 @@ const LogViewer: React.FC = () => {
       
       const data = await response.json();
       if (data.success && data.logs) {
-        // Sort logs by timestamp (oldest first)
         const sortedLogs = [...data.logs].sort((a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         setLogs(sortedLogs);
-        setFilteredLogs(sortedLogs); // Set filtered logs directly from API
+        setFilteredLogs(sortedLogs);
         
-        // Update available levels and services from API response
         if (data.levels) setLevels(data.levels);
         if (data.services) setServices(data.services);
         
@@ -165,11 +157,10 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  // Initial data load on component mount only
   useEffect(() => {
     const now = new Date();
     const startDate = new Date(now);
-    startDate.setMinutes(now.getMinutes() - 15); // Default 15m range
+    startDate.setMinutes(now.getMinutes() - 15);
     
     const initialFilters = {
       search: '', 
@@ -181,18 +172,15 @@ const LogViewer: React.FC = () => {
     };
     fetchLogs(initialFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, []);
   
-  // Handle polling start/stop separately  
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // Clean up existing interval
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
     
-    // Set up polling interval only if polling is enabled
     if (isPolling) {
       pollingIntervalRef.current = setInterval(() => {
         const currentDateValues = getDateRangeValues();
@@ -201,7 +189,7 @@ const LogViewer: React.FC = () => {
           ...currentDateValues
         };
         fetchLogs(currentFilters);
-      }, 3000); // Poll every 5 seconds
+      }, 3000);
     }
     
     return () => {
@@ -209,33 +197,25 @@ const LogViewer: React.FC = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling]); // Only run when polling state changes
+  }, [isPolling, filters, getDateRangeValues]);
 
-  // We no longer need client-side filtering since we're doing it on the server
-  // Remove the useEffect for extracting levels/services and applying filters
-
-  // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     if (autoScroll && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [filteredLogs, autoScroll]);
 
-  // Open drawer with log details
   const openLogDrawer = (log: LogEntryType) => {
     setSelectedLog(log);
     setDrawerOpen(true);
   };
 
-  // Close drawer
   const closeDrawer = () => {
     setDrawerOpen(false);
   };
 
-  // Add filter from drawer
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addFilterFromDrawer = (key: string, value: any) => {
-    // Format the value based on its type
     let formattedValue = value;
     if (typeof value === 'string') {
       formattedValue = `"${value}"`;
@@ -245,38 +225,25 @@ const LogViewer: React.FC = () => {
       formattedValue = `"${JSON.stringify(value)}"`;
     }
 
-    // Create the search term
     const searchTerm = `${key}:${formattedValue}`;
     
-    // Add to the search filter
     const newSearch = filters.search ? `${filters.search} ${searchTerm}` : searchTerm;
     
-    // Create a new filters object
     const newFilters = {
       ...filters,
       search: newSearch
     };
     
-    // Update the filters and trigger search
     handleFilterChange(newFilters);
     
-    // Log the new search term for debugging
-    console.log("Added filter:", searchTerm);
-    console.log("New search:", newSearch);
-    
-    // Close the drawer
     closeDrawer();
   };
 
-  // Handle filter changes - now triggers API call
   const handleFilterChange = (newFilters: { 
     search: string; 
     level: string; 
     service: string;
   }) => {
-    console.log("Filter changed:", newFilters);
-    
-    // Get current date range values
     const dateValues = getDateRangeValues();
     
     const combinedFilters = {
@@ -294,17 +261,14 @@ const LogViewer: React.FC = () => {
       endDate: combinedFilters.endDate
     });
     
-    // Fetch logs with new filters from API
     fetchLogs(combinedFilters);
   };
 
-  // Handle date range changes
   const handleDateRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newDateRange = e.target.value;
     setDateRange(newDateRange);
     setShowCustomDate(newDateRange === 'custom');
     
-    // Initialize custom dates with reasonable defaults when switching to custom
     if (newDateRange === 'custom' && (!customStartDate || !customEndDate)) {
       const now = dayjs();
       const oneHourAgo = now.subtract(1, 'hour');
@@ -312,11 +276,9 @@ const LogViewer: React.FC = () => {
       setCustomStartDate(oneHourAgo.toISOString());
       setCustomEndDate(now.toISOString());
       
-      // Don't trigger search immediately for custom range - wait for user to set dates
       return;
     }
     
-    // Trigger search immediately for date range changes
     if (newDateRange !== 'custom') {
       const now = new Date();
       const startDate = new Date();
@@ -375,7 +337,6 @@ const LogViewer: React.FC = () => {
 
   const handleCustomDateChange = () => {
     if (dateRange === 'custom' && customStartDate && customEndDate) {
-      // Validate dates before using them
       const start = dayjs(customStartDate);
       const end = dayjs(customEndDate);
       
@@ -403,29 +364,27 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  // Clear all logs
   const clearLogs = async () => {
     try {
       await fetch('/api/otel', { method: 'DELETE' });
       setLogs([]);
+      setFilteredLogs([]);
     } catch (error) {
       console.error('Error clearing logs:', error);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#151515] text-white relative">
-      {/* Header - New Relic style */}
+    <div className="flex flex-col h-screen bg-[#151515] text-white font-sans">
       <header className="bg-[#151515] p-2 border-b border-[#333333] flex justify-between items-center">
         <div className="flex items-center">
-          {/* Simple logo */}
           <svg
             width="24"
             height="24"
             viewBox="0 0 24 24"
             className="mr-2"
           >
-            <rect width="24" height="24" rx="4" fill="#00b9ff" />
+            <rect width="24" height="24" rx="4" fill={NEW_RELIC_GREEN} />
             <path
               d="M6 12L10 8L14 12L18 8V16H6V12Z"
               fill="white"
@@ -433,10 +392,9 @@ const LogViewer: React.FC = () => {
               strokeWidth="1"
             />
           </svg>
-          <h1 className="text-lg font-bold text-[#00b9ff]">mRelic</h1>
+          <h1 className="text-lg font-bold" style={{ color: NEW_RELIC_GREEN }}>mRelic</h1>
         </div>
         <div className="flex items-center space-x-3">
-          {/* Date Range Filter - New Relic style in header */}
           <div className="flex items-center gap-2">
             <select
               className="px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff] min-w-[140px]"
@@ -453,7 +411,7 @@ const LogViewer: React.FC = () => {
                 theme={{
                   algorithm: theme.darkAlgorithm,
                   token: {
-                    colorPrimary: '#00b9ff',
+                    colorPrimary: NEW_RELIC_GREEN,
                     colorBgBase: '#222222',
                     colorTextBase: '#e5e7eb',
                     colorBorder: '#333333',
@@ -467,7 +425,6 @@ const LogViewer: React.FC = () => {
                   onChange={(date: Dayjs | null) => {
                     if (date) {
                       setCustomStartDate(date.toISOString());
-                      // Only trigger change if both dates are set and valid
                       if (customEndDate && dayjs(customEndDate).isValid() && date.isBefore(dayjs(customEndDate))) {
                         setTimeout(handleCustomDateChange, 100);
                       }
@@ -487,7 +444,6 @@ const LogViewer: React.FC = () => {
                   onChange={(date: Dayjs | null) => {
                     if (date) {
                       setCustomEndDate(date.toISOString());
-                      // Only trigger change if both dates are set and valid
                       if (customStartDate && dayjs(customStartDate).isValid() && date.isAfter(dayjs(customStartDate))) {
                         setTimeout(handleCustomDateChange, 100);
                       }
@@ -549,7 +505,6 @@ const LogViewer: React.FC = () => {
         </div>
       </header>
 
-      {/* Graph Section - New Relic style with Recharts */}
       {showGraph && (
         <div className="bg-[#151515] p-2 border-b border-[#333333]">
           <div className="text-xs text-gray-400 mb-1">Log Volume</div>
@@ -557,77 +512,40 @@ const LogViewer: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={(() => {
-                  // Use filtered logs instead of all logs for the graph
                   const logsToGraph = filteredLogs.length > 0 ? filteredLogs : [];
+                  if (logsToGraph.length === 0) return [];
                   
-                  if (logsToGraph.length === 0) {
-                    return [];
-                  }
-                  
-                  // Group logs by time intervals based on the current date range
                   const timeIntervals: { [key: string]: number } = {};
-                  
-                  // Determine time interval based on date range
-                  let intervalMs = 60000; // Default 1 minute
+                  let intervalMs = 60000;
                   switch (dateRange) {
-                    case '15m':
-                    case '30m':
-                      intervalMs = 60000; // 1 minute intervals
-                      break;
-                    case '1h':
-                      intervalMs = 300000; // 5 minute intervals
-                      break;
-                    case '4h':
-                      intervalMs = 900000; // 15 minute intervals
-                      break;
-                    case '24h':
-                      intervalMs = 3600000; // 1 hour intervals
-                      break;
-                    case '7d':
-                      intervalMs = 21600000; // 6 hour intervals
-                      break;
-                    case '30d':
-                      intervalMs = 86400000; // 1 day intervals
-                      break;
-                    default:
-                      intervalMs = 60000;
+                    case '15m': case '30m': intervalMs = 60000; break;
+                    case '1h': intervalMs = 300000; break;
+                    case '4h': intervalMs = 900000; break;
+                    case '24h': intervalMs = 3600000; break;
+                    case '7d': intervalMs = 21600000; break;
+                    case '30d': intervalMs = 86400000; break;
+                    default: intervalMs = 60000;
                   }
                   
-                  // Get time range bounds
                   const dateValues = getDateRangeValues();
-                  
-                  // Validate date values
-                  if (!dateValues.startDate || !dateValues.endDate) {
-                    return [];
-                  }
+                  if (!dateValues.startDate || !dateValues.endDate) return [];
                   
                   const startTime = new Date(dateValues.startDate).getTime();
                   const endTime = new Date(dateValues.endDate).getTime();
+                  if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) return [];
                   
-                  // Check if dates are valid
-                  if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
-                    return [];
-                  }
-                  
-                  // Initialize time intervals
                   for (let time = startTime; time <= endTime; time += intervalMs) {
                     if (!isNaN(time)) {
-                      const timeKey = new Date(time).toISOString();
-                      timeIntervals[timeKey] = 0;
+                      timeIntervals[new Date(time).toISOString()] = 0;
                     }
                   }
                   
-                  // Count logs for each time interval
                   logsToGraph.forEach(log => {
                     const logTime = new Date(log.timestamp).getTime();
-                    
                     if (!isNaN(logTime)) {
-                      // Find the appropriate time bucket
                       const bucketTime = Math.floor((logTime - startTime) / intervalMs) * intervalMs + startTime;
-                      
                       if (!isNaN(bucketTime)) {
                         const timeKey = new Date(bucketTime).toISOString();
-                        
                         if (timeIntervals[timeKey] !== undefined) {
                           timeIntervals[timeKey]++;
                         }
@@ -635,83 +553,36 @@ const LogViewer: React.FC = () => {
                     }
                   });
                   
-                  // Convert to array for Recharts and sort by time
                   return Object.keys(timeIntervals)
                     .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
                     .map(time => {
                       const date = new Date(time);
                       let formattedTime;
-                      
-                      // Format time based on interval
                       if (intervalMs >= 86400000) {
-                        formattedTime = date.toLocaleDateString(); // Date only for day intervals
+                        formattedTime = date.toLocaleDateString();
                       } else if (intervalMs >= 3600000) {
-                        formattedTime = date.toLocaleString([], { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        });
+                        formattedTime = date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                       } else {
-                        formattedTime = date.toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        });
+                        formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       }
-                      
-                      return {
-                        time: formattedTime,
-                        count: timeIntervals[time],
-                        fullTime: time
-                      };
+                      return { time: formattedTime, count: timeIntervals[time], fullTime: time };
                     });
                 })()}
                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#333333" />
-                <XAxis
-                  dataKey="time"
-                  stroke="#666666"
-                  tick={{ fill: '#999999', fontSize: 10 }}
-                  axisLine={{ stroke: '#333333' }}
-                />
-                <YAxis
-                  stroke="#666666"
-                  tick={{ fill: '#999999', fontSize: 10 }}
-                  axisLine={{ stroke: '#333333' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#151515',
-                    border: 'none',
-                    borderRadius: '3px',
-                    boxShadow: '0 0 10px rgba(0,0,0,0.5)'
-                  }}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#ffffff' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#00b9ff"
-                  dot={false}
-                  strokeWidth={2}
-                />
+                <XAxis dataKey="time" stroke="#666666" tick={{ fill: '#999999', fontSize: 10 }} axisLine={{ stroke: '#333333' }} />
+                <YAxis stroke="#666666" tick={{ fill: '#999999', fontSize: 10 }} axisLine={{ stroke: '#333333' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#151515', border: 'none', borderRadius: '3px', boxShadow: '0 0 10px rgba(0,0,0,0.5)' }} labelStyle={{ color: '#ffffff', fontWeight: 'bold' }} itemStyle={{ color: '#ffffff' }} />
+                <Line type="monotone" dataKey="count" stroke={NEW_RELIC_GREEN} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* Filters */}
-      <LogFilter
-        onFilterChange={handleFilterChange}
-        levels={levels}
-        services={services}
-        search={filters.search}
-      />
+      <LogFilter onFilterChange={handleFilterChange} levels={levels} services={services} search={filters.search} />
 
-      {/* Column Selection */}
       <div className="bg-[#151515] p-2 border-b border-[#333333] flex flex-wrap gap-2">
         <div className="text-xs text-gray-400">Columns:</div>
         {availableColumns.map(column => (
@@ -721,11 +592,7 @@ const LogViewer: React.FC = () => {
               id={`col-${column}`}
               checked={selectedColumns.includes(column)}
               onChange={() => {
-                if (selectedColumns.includes(column)) {
-                  setSelectedColumns(selectedColumns.filter(c => c !== column));
-                } else {
-                  setSelectedColumns([...selectedColumns, column]);
-                }
+                setSelectedColumns(prev => prev.includes(column) ? prev.filter(c => c !== column) : [...prev, column]);
               }}
               className="mr-1 h-3 w-3"
             />
@@ -734,95 +601,49 @@ const LogViewer: React.FC = () => {
         ))}
       </div>
 
-      {/* Log Table - New Relic style */}
       <div className="flex-grow overflow-auto">
         {filteredLogs.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
-            <p className="text-sm">No logs to display. Send some logs to the OpenTelemetry endpoint.</p>
+            <p className="text-sm">No logs to display.</p>
           </div>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full text-xs font-mono">
             <thead className="bg-[#222222] sticky top-0">
               <tr>
-                {selectedColumns.includes('timestamp') && (
-                  <th className="p-2 text-left text-gray-400 font-medium">Time</th>
-                )}
-                {selectedColumns.includes('service') && (
-                  <th className="p-2 text-left text-gray-400 font-medium">Service</th>
-                )}
-                {selectedColumns.includes('level') && (
-                  <th className="p-2 text-left text-gray-400 font-medium">Level</th>
-                )}
-
-                {selectedColumns.includes('message') && (
-                  <th className="p-2 text-left text-gray-400 font-medium">Message</th>
-                )}
+                {selectedColumns.includes('timestamp') && <th className="p-2 text-left text-gray-400 font-medium">Time</th>}
+                {selectedColumns.includes('service') && <th className="p-2 text-left text-gray-400 font-medium">Service</th>}
+                {selectedColumns.includes('level') && <th className="p-2 text-left text-gray-400 font-medium">Level</th>}
+                {selectedColumns.includes('message') && <th className="p-2 text-left text-gray-400 font-medium">Message</th>}
                 <th className="w-8"></th>
               </tr>
             </thead>
             <tbody>
               {filteredLogs.map(log => {
-                // Format timestamp
                 const formatTimestamp = (timestamp: string) => {
                   try {
                     const date = new Date(timestamp);
                     return date.toLocaleTimeString() + '.' + date.getMilliseconds().toString().padStart(3, '0');
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   } catch (e) {
                     return timestamp;
                   }
                 };
-
-                // Determine log level color
                 const getLevelColor = (level?: string) => {
                   if (!level) return 'bg-gray-500';
-                  
                   switch (level.toLowerCase()) {
                     case 'error': return 'bg-red-500';
-                    case 'warn':
-                    case 'warning': return 'bg-yellow-500';
+                    case 'warn': case 'warning': return 'bg-yellow-500';
                     case 'info': return 'bg-blue-500';
                     case 'debug': return 'bg-green-500';
                     default: return 'bg-gray-500';
                   }
                 };
-
                 return (
-                  <tr
-                    key={log.id}
-                    className="border-b border-[#333333] hover:bg-[#222222] cursor-pointer"
-                    onClick={() => openLogDrawer(log)}
-                  >
-                    {selectedColumns.includes('timestamp') && (
-                      <td className="p-2 text-gray-300 whitespace-nowrap">{formatTimestamp(log.timestamp)}</td>
-                    )}
-                    {selectedColumns.includes('service') && (
-                      <td className="p-2">
-                        <span className="bg-[#333333] text-gray-300 px-2 py-0.5 rounded">{log.service || 'unknown'}</span>
-                      </td>
-                    )}
-                    {selectedColumns.includes('level') && (
-                      <td className="p-2">
-                        <div className="flex items-center">
-                          <div className={`w-2 h-2 rounded-full mr-1 ${getLevelColor(log.level)}`}></div>
-                          <span className="text-gray-300">{log.level}</span>
-                        </div>
-                      </td>
-                    )}
-
-                    {selectedColumns.includes('message') && (
-                      <td className="p-2 text-gray-300 truncate max-w-md">{log.message}</td>
-                    )}
-                    <td className="p-2 text-right">
-                      <svg
-                        className="w-3 h-3 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </td>
+                  <tr key={log.id} className="border-b border-[#333333] hover:bg-[#222222] cursor-pointer" onClick={() => openLogDrawer(log)}>
+                    {selectedColumns.includes('timestamp') && <td className="p-2 text-gray-300 whitespace-nowrap">{formatTimestamp(log.timestamp)}</td>}
+                    {selectedColumns.includes('service') && <td className="p-2"><span className="bg-[#333333] text-gray-300 px-2 py-0.5 rounded">{log.service || 'unknown'}</span></td>}
+                    {selectedColumns.includes('level') && <td className="p-2"><div className="flex items-center"><div className={`w-2 h-2 rounded-full mr-1 ${getLevelColor(log.level)}`}></div><span className="text-gray-300">{log.level}</span></div></td>}
+                    {selectedColumns.includes('message') && <td className="p-2 text-gray-300 truncate max-w-md">{log.message}</td>}
+                    <td className="p-2 text-right"><svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></td>
                   </tr>
                 );
               })}
@@ -832,263 +653,52 @@ const LogViewer: React.FC = () => {
         <div ref={logsEndRef} />
       </div>
 
-      {/* Footer */}
       <footer className="bg-[#151515] p-2 border-t border-[#333333] text-center text-xs text-gray-500">
         <p>Displaying {filteredLogs.length} of {logs.length} logs</p>
       </footer>
 
-      {/* Log Detail Drawer - New Relic style */}
       {drawerOpen && selectedLog && (
-        <div className="fixed inset-y-0 right-0 w-1/3 bg-[#222222] border-l border-[#333333] shadow-lg overflow-auto z-10">
+        <div className="fixed inset-y-0 right-0 w-1/3 bg-[#222222] border-l border-[#333333] shadow-lg overflow-auto z-10 font-mono">
           <div className="sticky top-0 bg-[#222222] p-3 border-b border-[#333333] flex justify-between items-center">
-            <div className="flex items-center">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                className="mr-2"
-              >
-                <rect width="24" height="24" rx="4" fill="#00b9ff" />
-                <path
-                  d="M6 12L10 8L14 12L18 8V16H6V12Z"
-                  fill="white"
-                  stroke="white"
-                  strokeWidth="1"
-                />
-              </svg>
-              <h3 className="text-sm font-semibold text-[#00b9ff]">mRelic Log Details</h3>
-            </div>
-            <button
-              onClick={closeDrawer}
-              className="text-gray-400 hover:text-white"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <h3 className="text-sm font-semibold" style={{ color: NEW_RELIC_GREEN }}>Log Details</h3>
+            <button onClick={closeDrawer} className="text-gray-400 hover:text-white">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
           
-          {/* Message and Timestamp at the top */}
           <div className="p-3 border-b border-[#333333] bg-[#1a1a1a]">
             <div className="mb-2">
               <div className="text-xs text-gray-400">Timestamp</div>
-              <div className="text-xs text-white">{selectedLog.timestamp}</div>
+              <div className="text-sm text-white">{new Date(selectedLog.timestamp).toLocaleString()}</div>
             </div>
             <div>
               <div className="text-xs text-gray-400">Message</div>
-              <div className="text-xs text-white break-words">{selectedLog.message}</div>
+              <div className="text-sm text-white whitespace-pre-wrap break-words">{selectedLog.message}</div>
             </div>
           </div>
           
-          {/* Key-Value pairs - Organized by categories */}
           <div className="p-3">
-            {/* Service Tags Section */}
-            <div className="mb-4">
-              <div className="text-xs text-[#00b9ff] mb-2">Service Tags</div>
-              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
-                {Object.entries(selectedLog).filter(([key]) =>
-                  ['service', 'service_name'].includes(key)
-                ).map(([key, value]) => (
-                  <div key={key} className="flex flex-col">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-[#00b9ff]">{key}</span>
-                      <button
-                        onClick={() => addFilterFromDrawer(key, value)}
-                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
-                        title="Filter by this value"
-                      >
-                        Filter
-                      </button>
-                    </div>
-                    <div className="text-xs text-white break-words">
-                      {typeof value === 'object' && value !== null
-                        ? JSON.stringify(value, null, 2)
-                        : String(value)
-                      }
-                    </div>
+            <div className="text-xs mb-2" style={{ color: NEW_RELIC_GREEN }}>Attributes</div>
+            <div className="space-y-1 bg-[#1a1a1a] p-2 rounded">
+              {Object.entries(selectedLog).filter(([key]) =>
+                !['id', 'timestamp', 'message'].includes(key)
+              ).map(([key, value]) => (
+                <div key={key} className="flex justify-between items-center group">
+                  <div className="flex-grow overflow-hidden">
+                    <span className="text-xs text-gray-400">{key}: </span>
+                    <span className="ml-2 text-xs text-green-400 break-all whitespace-pre-wrap">
+                      {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Log Details Section */}
-            <div className="mb-4">
-              <div className="text-xs text-[#00b9ff] mb-2">Log Details</div>
-              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
-                {Object.entries(selectedLog).filter(([key]) =>
-                  ['level', 'message'].includes(key)
-                ).map(([key, value]) => (
-                  <div key={key} className="flex flex-col">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-[#00b9ff]">{key}</span>
-                      <button
-                        onClick={() => addFilterFromDrawer(key, value)}
-                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
-                        title="Filter by this value"
-                      >
-                        Filter
-                      </button>
-                    </div>
-                    <div className="text-xs text-white break-words">
-                      {typeof value === 'object' && value !== null
-                        ? JSON.stringify(value, null, 2)
-                        : String(value)
-                      }
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Meta Section - Special handling for JSON data */}
-            {selectedLog.meta && (
-              <div className="mb-4">
-                <div className="text-xs text-[#00b9ff] mb-2">Meta Data</div>
-                <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
-                  {(() => {
-                    // Try to parse meta as JSON if it's a string
-                    let metaData = selectedLog.meta;
-                    if (typeof metaData === 'string') {
-                      try {
-                        metaData = JSON.parse(metaData);
-                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                      } catch (e) {
-                        // If parsing fails, keep as string
-                        return (
-                          <div className="flex flex-col">
-                            <div className="flex justify-between items-center">
-                              <span className="text-xs text-[#00b9ff]">meta</span>
-                              <button
-                                onClick={() => addFilterFromDrawer('meta', selectedLog.meta)}
-                                className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
-                                title="Filter by this value"
-                              >
-                                Filter
-                              </button>
-                            </div>
-                            <div className="text-sm text-white break-words">
-                              {String(selectedLog.meta)}
-                            </div>
-                          </div>
-                        );
-                      }
-                    }
-                    
-                    // If meta is an object, display its properties as key-value pairs
-                    if (typeof metaData === 'object' && metaData !== null) {
-                      return Object.entries(metaData).map(([metaKey, metaValue]) => (
-                        <div key={`meta-${metaKey}`} className="flex flex-col">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-[#00b9ff]">{metaKey}</span>
-                            <button
-                              onClick={() => addFilterFromDrawer(`meta.${metaKey}`, metaValue)}
-                              className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
-                              title="Filter by this value"
-                            >
-                              Filter
-                            </button>
-                          </div>
-                          <div className="text-sm text-white break-words">
-                            {typeof metaValue === 'object' && metaValue !== null
-                              ? JSON.stringify(metaValue, null, 2)
-                              : String(metaValue)
-                            }
-                          </div>
-                        </div>
-                      ));
-                    }
-                    
-                    return null;
-                  })()}
+                  <button
+                    onClick={() => addFilterFromDrawer(key, value)}
+                    className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#333333] opacity-0 group-hover:opacity-100 transition-opacity"
+                    title={`Filter by ${key}`}
+                  >
+                    <FilterIcon size={14} />
+                  </button>
                 </div>
-              </div>
-            )}
-            
-            {/* Tags Section - All other attributes */}
-            <div>
-              <div className="text-xs text-[#00b9ff] mb-2">Tags</div>
-              <div className="space-y-2 bg-[#1a1a1a] p-2 rounded">
-                {Object.entries(selectedLog).filter(([key]) =>
-                  !['id', 'timestamp', 'service', 'service_name', 'level', 'message', 'meta'].includes(key)
-                ).map(([key, value]) => {
-                  // Try to parse value as JSON if it's a string
-                  let displayValue = value;
-                  if (typeof value === 'string') {
-                    try {
-                      // Check if the string looks like JSON
-                      if ((value.startsWith('{') && value.endsWith('}')) ||
-                          (value.startsWith('[') && value.endsWith(']'))) {
-                        const parsedValue = JSON.parse(value);
-                        if (typeof parsedValue === 'object' && parsedValue !== null) {
-                          // If it's a complex object, render nested key-value pairs
-                          return (
-                            <div key={key} className="flex flex-col">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-[#00b9ff] font-semibold">{key}</span>
-                                <button
-                                  onClick={() => addFilterFromDrawer(key, value)}
-                                  className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333]"
-                                  title="Filter by this value"
-                                >
-                                  Filter
-                                </button>
-                              </div>
-                              <div className="ml-2 mt-1 space-y-1 border-l-2 border-[#333333] pl-2">
-                                {Object.entries(parsedValue).map(([nestedKey, nestedValue]) => (
-                                  <div key={`${key}-${nestedKey}`} className="flex flex-col">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-xs text-[#00b9ff]">{nestedKey}</span>
-                                      <button
-                                        onClick={() => addFilterFromDrawer(`${key}.${nestedKey}`, nestedValue)}
-                                        className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
-                                        title="Filter by this value"
-                                      >
-                                        Filter
-                                      </button>
-                                    </div>
-                                    <div className="text-xs text-white break-words">
-                                      {typeof nestedValue === 'object' && nestedValue !== null
-                                        ? JSON.stringify(nestedValue, null, 2)
-                                        : String(nestedValue)
-                                      }
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        }
-                                              }
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    } catch (e) {
-                      // If parsing fails, use the original value
-                      displayValue = value;
-                    }
-                  }
-                  
-                  // Default rendering for non-JSON values
-                  return (
-                    <div key={key} className="flex flex-col">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-[#00b9ff]">{key}</span>
-                        <button
-                          onClick={() => addFilterFromDrawer(key, displayValue)}
-                          className="text-xs text-gray-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333]"
-                          title="Filter by this value"
-                        >
-                          Filter
-                        </button>
-                      </div>
-                      <div className="text-xs text-white break-words">
-                        {typeof displayValue === 'object' && displayValue !== null
-                          ? JSON.stringify(displayValue, null, 2)
-                          : String(displayValue)
-                        }
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              ))}
             </div>
           </div>
         </div>
