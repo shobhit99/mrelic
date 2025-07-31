@@ -8,7 +8,7 @@ fi
 
 # Default server details (will be replaced by docker environment)
 SERVER_HOST=${MRELIC_HOST:-localhost}
-SERVER_PORT=${MRELIC_PORT:-3000}
+SERVER_PORT=${MRELIC_PORT:-5959}
 
 # Export environment variables for the log processor
 export MRELIC_HOST="$SERVER_HOST"

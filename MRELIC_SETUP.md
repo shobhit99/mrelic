@@ -27,8 +27,8 @@ docker build -f Dockerfile.mrelic -t repo/mrelic .
 
 ### 2. Start the Server
 ```bash
-# Basic setup (port 3000, database at ~/Documents/mrelic.db)
-docker run -d --name mrelic-server -p 3000:3000 -v ~/Documents:/data repo/mrelic
+# Basic setup (port 5959, database at ~/Documents/mrelic.db)
+docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic
 
 # Custom port and database location
 docker run -d --name mrelic-server -p 8080:8080 -v ~/Documents:/data repo/mrelic --port 8080 --db /data/custom.db
@@ -43,8 +43,8 @@ if [ -z "$CONTAINER_ID" ]; then
     echo "❌ mrelic server not running!"
     exit 1
 fi
-SERVER_PORT=$(docker port mrelic-server 3000/tcp | cut -d: -f2 2>/dev/null)
-SERVER_PORT=${SERVER_PORT:-3000}
+SERVER_PORT=$(docker port mrelic-server 5959/tcp | cut -d: -f2 2>/dev/null)
+SERVER_PORT=${SERVER_PORT:-5959}
 docker run --rm -i --network host \
   -e MRELIC_HOST=localhost \
   -e MRELIC_PORT=$SERVER_PORT \
@@ -83,7 +83,7 @@ cd any-service
 1. **Service Detection**: The `mrelic` command automatically detects your service name from the current directory
 2. **Dynamic Configuration**: It creates a fluent-bit config file with your service name
 3. **Log Processing**: Fluent-bit processes your logs and sends them to the prettylogs server
-4. **Web Interface**: View and analyze your logs at http://localhost:3000
+4. **Web Interface**: View and analyze your logs at http://localhost:5959
 
 ## Features
 
@@ -100,14 +100,14 @@ cd any-service
 ### Environment Variables
 
 - `MRELIC_HOST`: Server host (default: localhost)
-- `MRELIC_PORT`: Server port (default: 3000)
-- `PORT`: Web interface port (default: 3000)
+- `MRELIC_PORT`: Server port (default: 5959)
+- `PORT`: Web interface port (default: 5959)
 - `DB_PATH`: Database file path (default: ~/Documents/mrelic.db)
 
 ### Custom Database Location
 
 ```bash
-docker run -d --name mrelic-server -p 3000:3000 \
+docker run -d --name mrelic-server -p 5959:5959 \
   -v /path/to/your/data:/data \
   repo/mrelic --db /data/logs.db
 ```
@@ -148,7 +148,7 @@ docker logs mrelic-server
 ### Can't connect to server
 1. Check if container is running: `docker ps`
 2. Check port mapping: `docker port mrelic-server`
-3. Test connection: `curl http://localhost:3000/api/health`
+3. Test connection: `curl http://localhost:5959/api/health`
 
 ### mrelic command not found
 Make sure you ran the setup script or manually created the command as shown above.
@@ -171,4 +171,4 @@ You can override the service name by setting the directory name or using a custo
 
 ---
 
-**Need help?** Check the logs with `docker logs mrelic-server` or visit the web interface at http://localhost:3000 
+**Need help?** Check the logs with `docker logs mrelic-server` or visit the web interface at http://localhost:5959 

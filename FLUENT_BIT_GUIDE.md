@@ -127,7 +127,7 @@ Global configuration for Fluent Bit:
     Name                http
     Match               *
     Host                localhost
-    Port                3000
+    Port                5959
     URI                 /api/otel
     Format              json
     Header              Content-Type application/json
@@ -268,7 +268,7 @@ Global configuration for Fluent Bit:
     Name                http
     Match               app.*
     Host                localhost
-    Port                3000
+    Port                5959
     URI                 /api/otel
     Format              json
     Header              Content-Type application/json
@@ -317,7 +317,7 @@ docker-compose logs fluent-bit
 
 3. Send test logs:
 ```bash
-curl -X POST http://localhost:3000/api/otel \
+curl -X POST http://localhost:5959/api/otel \
   -H "Content-Type: application/json" \
   -d '{
     "timestamp": "2024-01-15T10:30:00.000Z",
@@ -327,7 +327,7 @@ curl -X POST http://localhost:3000/api/otel \
   }'
 ```
 
-4. View logs in your application at `http://localhost:3000`
+4. View logs in your application at `http://localhost:5959`
 
 ## Common Issues and Solutions
 
@@ -348,7 +348,7 @@ curl -X POST http://localhost:3000/api/otel \
     Name                http
     Match               *
     Host                localhost
-    Port                3000
+    Port                5959
     URI                 /api/otel
     Format              json
     Header              Content-Type application/json

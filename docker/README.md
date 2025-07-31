@@ -12,8 +12,8 @@ docker build -f Dockerfile.mrelic -t repo/mrelic .
 
 ### Basic Usage
 ```bash
-# Run with default settings (port 3000, db at ~/Documents/mrelic.db)
-docker run -d -p 3000:3000 -v ~/Documents:/data repo/mrelic
+# Run with default settings (port 5959, db at ~/Documents/mrelic.db)
+docker run -d -p 5959:5959 -v ~/Documents:/data repo/mrelic
 
 # Run with custom port and database location
 docker run -d -p 8080:8080 -v ~/Documents:/data repo/mrelic --port 8080 --db /data/custom.db
@@ -28,7 +28,7 @@ cat > /usr/local/bin/mrelic << 'EOF'
 #!/bin/sh
 docker run --rm -i --network host \
   -e MRELIC_HOST=localhost \
-  -e MRELIC_PORT=3000 \
+  -e MRELIC_PORT=5959 \
   -v "$(pwd):/workdir" \
   -w /workdir \
   repo/mrelic mrelic
@@ -53,11 +53,11 @@ go run main.go | mrelic
 ## Environment Variables
 
 - `MRELIC_HOST`: Host where the prettylogs server is running (default: localhost)
-- `MRELIC_PORT`: Port where the prettylogs server is running (default: 3000)
-- `PORT`: Port for the prettylogs web interface (default: 3000)
+- `MRELIC_PORT`: Port where the prettylogs server is running (default: 5959)
+- `PORT`: Port for the prettylogs web interface (default: 5959)
 - `DB_PATH`: Path to SQLite database file (default: ~/Documents/mrelic.db)
 
 ## Accessing the Web Interface
 
 Once the container is running, access the log viewer at:
-- http://localhost:3000 (or your custom port) 
+- http://localhost:5959 (or your custom port) 

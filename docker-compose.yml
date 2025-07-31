@@ -5,7 +5,7 @@ services:
   prettylogs:
     build: .
     ports:
-      - "3000:3000"
+      - "5959:5959"
     environment:
       - NODE_ENV=development
     volumes:

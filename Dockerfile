@@ -18,7 +18,7 @@ RUN npm run build
 RUN mkdir -p /app/logs
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5959
 
 # Start the application
 CMD ["npm", "run", "dev"] 

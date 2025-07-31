@@ -22,7 +22,7 @@ docker rm mrelic-server 2>/dev/null || true
 
 # Start the server
 echo "🚀 Starting mrelic server..."
-docker run -d --name mrelic-server -p 3000:3000 -v ~/Documents:/data repo/mrelic
+docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic
 
 # Wait for server to start
 echo "⏳ Waiting for server to start..."
@@ -38,13 +38,13 @@ CONTAINER_ID=$(docker ps -q -f name=mrelic-server)
 
 if [ -z "$CONTAINER_ID" ]; then
     echo "❌ Error: mrelic server container is not running!"
-    echo "Start it with: docker run -d --name mrelic-server -p 3000:3000 -v ~/Documents:/data repo/mrelic"
+    echo "Start it with: docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic"
     exit 1
 fi
 
 # Get the server port from the running container
-SERVER_PORT=$(docker port mrelic-server 3000/tcp | cut -d: -f2 2>/dev/null)
-SERVER_PORT=${SERVER_PORT:-3000}
+SERVER_PORT=$(docker port mrelic-server 5959/tcp | cut -d: -f2 2>/dev/null)
+SERVER_PORT=${SERVER_PORT:-5959}
 
 echo "📡 Connecting to mrelic server on port $SERVER_PORT"
 echo "🏷️  Service: $(basename "$(pwd)")"
@@ -63,7 +63,7 @@ sudo chmod +x /usr/local/bin/mrelic
 echo ""
 echo "✅ MRelic is ready!"
 echo ""
-echo "🌐 Web interface: http://localhost:3000"
+echo "🌐 Web interface: http://localhost:5959"
 echo "📊 Database location: ~/Documents/mrelic.db"
 echo ""
 echo "💡 Usage example:"

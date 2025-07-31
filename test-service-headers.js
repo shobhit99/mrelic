@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 // Configuration
-const API_ENDPOINT = 'http://localhost:3000/api/otel';
+const API_ENDPOINT = 'http://localhost:5959/api/otel';
 
 // Test sending logs with service.name header
 async function testServiceNameHeader() {

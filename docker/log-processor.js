@@ -12,7 +12,7 @@ function parseFluentConfig(configPath) {
     const lines = config.split('\n');
     
     let serverHost = 'localhost';
-    let serverPort = '3000';
+    let serverPort = '5959';
     let serviceName = 'unknown-service';
     
     for (const line of lines) {
@@ -35,7 +35,7 @@ function parseFluentConfig(configPath) {
 
 // Get configuration from command line arguments or environment variables
 let serverHost = process.env.MRELIC_HOST || 'localhost';
-let serverPort = process.env.MRELIC_PORT || '3000';
+let serverPort = process.env.MRELIC_PORT || '5959';
 let serviceName = process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
 
 // Check if we have a fluent-bit config file path as argument
