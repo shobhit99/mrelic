@@ -6,9 +6,10 @@ import { LogEntry as LogEntryType } from '@/lib/logStore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DatePicker, ConfigProvider, theme } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import { FilterIcon } from 'lucide-react';
+import { FilterIcon, Copy, Check } from 'lucide-react';
 
 const NEW_RELIC_GREEN = '#22c55e'; // A nice green similar to New Relic's
+const NEW_RELIC_GREEN_DARK = '#16a34a';
 
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
@@ -31,6 +32,7 @@ const LogViewer: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const dateRangePresets = [
     { value: '15m', label: 'Last 15 minutes' },
@@ -238,6 +240,13 @@ const LogViewer: React.FC = () => {
     
     closeDrawer();
   };
+  
+  const copyToClipboard = (key: string, value: any) => {
+    const textToCopy = typeof value === 'object' && value !== null ? JSON.stringify(value, null, 2) : String(value);
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  }
 
   const handleFilterChange = (newFilters: { 
     search: string; 
@@ -378,20 +387,19 @@ const LogViewer: React.FC = () => {
     <div className="flex flex-col h-screen bg-[#151515] text-white font-sans">
       <header className="bg-[#151515] p-2 border-b border-[#333333] flex justify-between items-center">
         <div className="flex items-center">
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            className="mr-2"
-          >
-            <rect width="24" height="24" rx="4" fill={NEW_RELIC_GREEN} />
-            <path
-              d="M6 12L10 8L14 12L18 8V16H6V12Z"
-              fill="white"
-              stroke="white"
-              strokeWidth="1"
-            />
-          </svg>
+        <svg width="24" height="24" viewBox="0 0 40 40" className="mr-1" fill="none">
+          <defs>
+            <filter id="glow" x="-10" y="-10" width="60" height="60" filterUnits="userSpaceOnUse">
+              <feGaussianBlur stdDeviation="5" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="20" cy="20" r="10" fill="none" stroke="#22c55e" strokeWidth="4" filter="url(#glow)" />
+          <circle cx="20" cy="20" r="14" fill="none" stroke="rgb(34,197,94)" strokeWidth="2" opacity="0.3" filter="url(#glow)" />
+        </svg>
           <h1 className="text-lg font-bold" style={{ color: NEW_RELIC_GREEN }}>mRelic</h1>
         </div>
         <div className="flex items-center space-x-3">
@@ -498,7 +506,7 @@ const LogViewer: React.FC = () => {
           </div>
           <button
             onClick={clearLogs}
-            className="px-2 py-1 bg-[#ff0000] hover:bg-[#cc0000] rounded text-xs transition-colors"
+            className="px-2 py-1 bg-[#ff5555] hover:bg-[#d13b3b] rounded text-xs transition-colors hover:cursor-pointer"
           >
             Clear
           </button>
@@ -690,13 +698,22 @@ const LogViewer: React.FC = () => {
                       {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
                     </span>
                   </div>
-                  <button
-                    onClick={() => addFilterFromDrawer(key, value)}
-                    className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#333333] opacity-0 group-hover:opacity-100 transition-opacity"
-                    title={`Filter by ${key}`}
-                  >
-                    <FilterIcon size={14} />
-                  </button>
+                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => copyToClipboard(key, value)}
+                        className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#333333]"
+                        title="Copy value"
+                    >
+                        {copiedKey === key ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                    </button>
+                    <button
+                        onClick={() => addFilterFromDrawer(key, value)}
+                        className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#333333]"
+                        title={`Filter by ${key}`}
+                    >
+                        <FilterIcon size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
