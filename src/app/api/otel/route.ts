@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Process each log entry
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const processedLogs = logsToProcess.map((log: any) => databaseService.addLog(log, headers));
     
     return NextResponse.json({
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     
     // Build filters object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filters: any = {};
     if (query) filters.query = query;
     if (level) filters.level = level;

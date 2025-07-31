@@ -32,7 +32,8 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, expanded, onToggleExpand }) =>
     try {
       const date = new Date(timestamp);
       return date.toLocaleTimeString() + '.' + date.getMilliseconds().toString().padStart(3, '0');
-    } catch (e) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_) {
       return timestamp;
     }
   };

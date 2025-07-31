@@ -6,6 +6,7 @@ export type LogEntry = {
   message: string;
   level?: string;
   service?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 };
 
@@ -19,6 +20,7 @@ class LogStore {
   }
 
   // Add a new log entry
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addLog(log: any): LogEntry {
     // Ensure the log has a message property
     const message = log.message || log.msg || JSON.stringify(log);

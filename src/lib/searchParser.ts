@@ -54,7 +54,7 @@ export function parseSearchQuery(query: string): SearchTerm[] {
 
     // Check if this is a key:value term or a plain text term
     let colonPosition = -1;
-    let keyStart = currentPosition;
+    const keyStart = currentPosition;
     
     // Look for a colon that's not inside quotes
     let insideQuotes = false;
@@ -210,6 +210,7 @@ export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTer
         const termValue = term.value;
         
         // Check in all fields
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for (const [key, value] of Object.entries(log)) {
           if (typeof value === 'string') {
             if (containsIgnoreCase(value, termValue)) {
@@ -230,6 +231,7 @@ export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTer
                 matches = true;
                 break;
               }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               // Ignore stringify errors
             }

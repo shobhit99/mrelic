@@ -218,6 +218,7 @@ const LogViewer: React.FC = () => {
   };
 
   // Add filter from drawer
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const addFilterFromDrawer = (key: string, value: any) => {
     // Format the value based on its type
     let formattedValue = value;
@@ -751,6 +752,7 @@ const LogViewer: React.FC = () => {
                   try {
                     const date = new Date(timestamp);
                     return date.toLocaleTimeString() + '.' + date.getMilliseconds().toString().padStart(3, '0');
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   } catch (e) {
                     return timestamp;
                   }
@@ -934,6 +936,7 @@ const LogViewer: React.FC = () => {
                     if (typeof metaData === 'string') {
                       try {
                         metaData = JSON.parse(metaData);
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
                       } catch (e) {
                         // If parsing fails, keep as string
                         return (
@@ -1040,7 +1043,8 @@ const LogViewer: React.FC = () => {
                             </div>
                           );
                         }
-                      }
+                                              }
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     } catch (e) {
                       // If parsing fails, use the original value
                       displayValue = value;

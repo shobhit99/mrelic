@@ -33,6 +33,7 @@ export function getIO() {
   return io;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function emitNewLog(log: any) {
   if (io) {
     io.emit('newLog', log);

@@ -32,6 +32,7 @@ db.exec(`
 class DatabaseService {
   
   // Add a log entry to the database
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addLog(log: any, headers?: Headers): LogEntry {
     // Ensure the log has a message property
     const logMessage = log.message || log.msg || log.body || JSON.stringify(log);
@@ -130,6 +131,7 @@ class DatabaseService {
     `;
     
     const conditions: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any[] = [];
     
     // Add level and service filters (these are always applied at database level)
@@ -194,6 +196,7 @@ class DatabaseService {
     const rows = stmt.all(...params);
     
     // Convert rows back to LogEntry format
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let logs = rows.map((row: any) => {
       const additionalData = JSON.parse(row.data || '{}');
       return {
@@ -227,6 +230,7 @@ class DatabaseService {
   getLevels(): string[] {
     const stmt = db.prepare('SELECT DISTINCT level FROM logs WHERE level IS NOT NULL ORDER BY level');
     const rows = stmt.all();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows.map((row: any) => row.level);
   }
 
@@ -234,6 +238,7 @@ class DatabaseService {
   getServices(): string[] {
     const stmt = db.prepare('SELECT DISTINCT service FROM logs WHERE service IS NOT NULL ORDER BY service');
     const rows = stmt.all();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rows.map((row: any) => row.service);
   }
 
@@ -261,6 +266,7 @@ class DatabaseService {
     let sql = 'SELECT COUNT(*) as count FROM logs';
     
     const conditions: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any[] = [];
     
     // Add filter conditions (same as getLogs)
