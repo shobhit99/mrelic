@@ -165,18 +165,34 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  // Set up polling for logs
+  // Initial data load on component mount only
   useEffect(() => {
-    // Get initial date range values and fetch logs
-    const dateValues = getDateRangeValues();
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setMinutes(now.getMinutes() - 15); // Default 15m range
+    
     const initialFilters = {
-      ...filters,
-      ...dateValues
+      search: '', 
+      level: '', 
+      service: '', 
+      dateRange: '15m',
+      startDate: startDate.toISOString(),
+      endDate: now.toISOString()
     };
-    
     fetchLogs(initialFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+  
+  // Handle polling start/stop separately  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Clean up existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
     
-    // Set up polling interval
+    // Set up polling interval only if polling is enabled
     if (isPolling) {
       pollingIntervalRef.current = setInterval(() => {
         const currentDateValues = getDateRangeValues();
@@ -185,16 +201,15 @@ const LogViewer: React.FC = () => {
           ...currentDateValues
         };
         fetchLogs(currentFilters);
-      }, 2000); // Poll every 2 seconds
+      }, 3000); // Poll every 5 seconds
     }
     
-    // Clean up on unmount
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling, filters, dateRange]);
+  }, [isPolling]); // Only run when polling state changes
 
   // We no longer need client-side filtering since we're doing it on the server
   // Remove the useEffect for extracting levels/services and applying filters
