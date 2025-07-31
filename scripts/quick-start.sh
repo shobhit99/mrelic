@@ -28,37 +28,9 @@ docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic
 echo "⏳ Waiting for server to start..."
 sleep 5
 
-# Setup the mrelic command
+# Setup the mrelic command using build-mrelic.sh
 echo "🔧 Setting up mrelic command..."
-sudo tee /usr/local/bin/mrelic > /dev/null << 'EOF'
-#!/bin/sh
-
-# Check if the mrelic server container is running
-CONTAINER_ID=$(docker ps -q -f name=mrelic-server)
-
-if [ -z "$CONTAINER_ID" ]; then
-    echo "❌ Error: mrelic server container is not running!"
-    echo "Start it with: docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic"
-    exit 1
-fi
-
-# Get the server port from the running container
-SERVER_PORT=$(docker port mrelic-server 5959/tcp | cut -d: -f2 2>/dev/null)
-SERVER_PORT=${SERVER_PORT:-5959}
-
-echo "📡 Connecting to mrelic server on port $SERVER_PORT"
-echo "🏷️  Service: $(basename "$(pwd)")"
-
-# Run fluent-bit in a temporary container that connects to the server
-docker run --rm -i --network host \
-  -e MRELIC_HOST=localhost \
-  -e MRELIC_PORT=$SERVER_PORT \
-  -v "$(pwd):/workdir" \
-  -w /workdir \
-  repo/mrelic /usr/local/bin/mrelic
-EOF
-
-sudo chmod +x /usr/local/bin/mrelic
+./scripts/build-mrelic.sh
 
 echo ""
 echo "✅ MRelic is ready!"
