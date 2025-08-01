@@ -1,11 +1,19 @@
-# <img src="public/favicon.svg" width="32" height="32" style="vertical-align: middle"> mRelic
+<div align="center">
+<p align="center">
+  <img src="public/favicon.svg" width="150" height="150">
+</p>
 
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/next.js-14.0-black.svg)](https://nextjs.org)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+<h1 align="center"><b>mRelic</b></h1>
 
-Beautiful log monitoring for any application, powered by fluent-bit and Next.js.
+<p align="center">
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14.0-black.svg" alt="Next.js"></a>
+  <a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+</p>
+
+<p align="center">Beautiful log monitoring for any application, powered by fluent-bit and Next.js.</p>
+</div>
 
 ![mRelic Dashboard](https://github.com/user-attachments/assets/271644cc-5e8b-404e-8d8f-a51c577b902f)
 
