@@ -113,21 +113,36 @@ fi
 # Generate service-specific config with proper paths and service name
 sed -e "s/SERVICE_NAME_PLACEHOLDER/\$SERVICE_NAME/g" \
     -e "s|payments-service|\$SERVICE_NAME|g" \
+    -e "s|discount-service|\$SERVICE_NAME|g" \
+    -e "s|/tmp/logs/discount-service.log|/tmp/logs/\$SERVICE_NAME.log|g" \
     -e "s|/fluent-configs/|\$FLUENT_CONFIG_DIR/|g" \
     "\$TEMPLATE_FILE" > "\$TEMP_CONFIG"
 
-echo "📡 Connecting to mrelic server on port 5959"
-echo "🏷️  Service: \$SERVICE_NAME"
-echo "📝 Using config: \$TEMP_CONFIG"
-
 # Check if we have arguments (command to run) or should read from stdin
 if [ \$# -gt 0 ]; then
-    echo "🚀 Running: \$*"
-    # Run the command and pipe directly to fluent-bit with generated config
-    eval "\$* 2>&1" | fluent-bit -vv -c "\$TEMP_CONFIG"
+    LOG_DIR="/tmp/logs"
+    mkdir -p "\$LOG_DIR"
+    LOG_FILE="\$LOG_DIR/\$SERVICE_NAME.log"
+    
+    # Create log file so fluent-bit can tail it
+    touch "\$LOG_FILE"
+
+    echo "🚀 Running command: \$* (logs will be sent to mrelic)"
+    echo "📝 Raw logs are stored at: \$LOG_FILE"
+
+    # Start fluent-bit in the background to tail the log file
+    fluent-bit -q -c "\$TEMP_CONFIG" &
+    FB_PID=\$!
+
+    # Clean up fluent-bit on exit
+    trap 'kill \$FB_PID 2>/dev/null' EXIT
+
+    # Run the command and tee its output to the log file and stdout
+    eval "\$* 2>&1" | tee "\$LOG_FILE"
 else
-    # Read from stdin (original behavior)
-    fluent-bit -vv -c "\$TEMP_CONFIG"
+    # Show usage if no command is provided
+    echo "Usage: mrelic <command>"
+    echo "Example: mrelic npm run start:dev"
 fi
 EOF
 

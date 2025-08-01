@@ -4,6 +4,10 @@ import { databaseService } from '@/lib/database';
 // POST endpoint to receive logs
 export async function POST(request: NextRequest) {
   try {
+    // return NextResponse.json({
+    //   success: true,
+    //   message: 'Logs received successfully'
+    // }, { status: 200 });
     // Parse the request body
     let body = await request.json();
     // Get headers from the request
@@ -39,7 +43,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       count: processedLogs.length,
-      logs: processedLogs
     }, { status: 200 });
   } catch (error) {
     console.error('Error processing logs:', error);
