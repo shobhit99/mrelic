@@ -48,7 +48,7 @@ If you prefer to set things up manually:
 
 ### 1. Build the Image
 ```bash
-./scripts/build-mrelic.sh
+docker build -f Dockerfile.mrelic -t repo/mrelic .
 ```
 
 ### 2. Start the Server
@@ -62,24 +62,7 @@ docker run -d --name mrelic-server -p 8080:8080 -v ~/Documents:/data repo/mrelic
 
 ### 3. Set up the mrelic command
 ```bash
-sudo tee /usr/local/bin/mrelic > /dev/null << 'EOF'
-#!/bin/sh
-CONTAINER_ID=$(docker ps -q -f name=mrelic-server)
-if [ -z "$CONTAINER_ID" ]; then
-    echo "❌ mrelic server not running!"
-    exit 1
-fi
-SERVER_PORT=$(docker port mrelic-server 5959/tcp | cut -d: -f2 2>/dev/null)
-SERVER_PORT=${SERVER_PORT:-5959}
-docker run --rm -i --network host \
-  -e MRELIC_HOST=localhost \
-  -e MRELIC_PORT=$SERVER_PORT \
-  -v "$(pwd):/workdir" \
-  -w /workdir \
-  repo/mrelic /usr/local/bin/mrelic
-EOF
-
-sudo chmod +x /usr/local/bin/mrelic
+./scripts/build-mrelic.sh
 ```
 
 ## Usage
