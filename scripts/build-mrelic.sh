@@ -32,6 +32,9 @@ sudo tee /usr/local/bin/mrelic > /dev/null << EOF
 # Get current directory name as service name
 SERVICE_NAME=\$(basename "\$(pwd)")
 
+# Set terminal title
+printf "\e]0;%s\a" "\$SERVICE_NAME"
+
 # Define fluent-bit config directory (adjust path as needed)
 FLUENT_CONFIG_DIR="\$HOME/fluent-bit"
 
@@ -163,4 +166,4 @@ echo "   go run main.go | mrelic"
 echo ""
 echo "3. View logs at: http://localhost:5959"
 echo ""
-echo "📝 Note: This requires fluent-bit to be installed on your system" 
+echo "📝 Note: This requires fluent-bit to be installed on your system"
