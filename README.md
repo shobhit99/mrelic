@@ -48,7 +48,7 @@ If you prefer to set things up manually:
 
 ### 1. Build the Image
 ```bash
-docker build -f Dockerfile.mrelic -t repo/mrelic .
+./scripts/build-mrelic.sh
 ```
 
 ### 2. Start the Server
