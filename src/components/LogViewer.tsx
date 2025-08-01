@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DatePicker, ConfigProvider, theme } from 'antd';
+import { DatePicker, ConfigProvider, theme, Modal } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { FilterIcon, Copy, Check } from 'lucide-react';
 
@@ -14,6 +14,10 @@ const NEW_RELIC_GREEN_DARK = '#16a34a';
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
+  const [dbSize, setDbSize] = useState<number>(0);
+  const [isClearModalVisible, setIsClearModalVisible] = useState<boolean>(false);
+  const [clearService, setClearService] = useState<string>('');
+  const [clearTimeframe, setClearTimeframe] = useState<string>('7d');
 
   const [isConnected, setIsConnected] = useState(true);
   const [autoScroll, setAutoScroll] = useState(false);
@@ -175,6 +179,18 @@ const LogViewer: React.FC = () => {
     }
   };
 
+    const fetchDbSize = async () => {
+        try {
+            const response = await fetch('/api/db-size');
+            const data = await response.json();
+            if (data.success) {
+                setDbSize(data.size);
+            }
+        } catch (error) {
+            console.error('Error fetching db size:', error);
+        }
+    };
+
   useEffect(() => {
     const now = new Date();
     const startDate = new Date(now);
@@ -189,6 +205,7 @@ const LogViewer: React.FC = () => {
       endDate: now.toISOString()
     };
     fetchLogs(initialFilters);
+    fetchDbSize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -389,13 +406,52 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  const clearLogs = async () => {
+  const showClearModal = () => {
+    setIsClearModalVisible(true);
+  };
+
+  const handleClearCancel = () => {
+    setIsClearModalVisible(false);
+  };
+
+  const handleClearOk = async () => {
     try {
-      await fetch('/api/otel', { method: 'DELETE' });
-      setLogs([]);
-      setFilteredLogs([]);
+      const params = new URLSearchParams();
+      if (clearService) {
+        params.append('service', clearService);
+      }
+
+      if (clearTimeframe !== 'all') {
+        const now = dayjs();
+        let endDate;
+        if (clearTimeframe === '7d') {
+          endDate = now.subtract(7, 'day');
+        } else if (clearTimeframe === '14d') {
+            endDate = now.subtract(14, 'day');
+        } else if (clearTimeframe === '30d') {
+            endDate = now.subtract(30, 'day');
+        }
+        if (endDate) {
+          params.append('endDate', endDate.toISOString());
+        }
+      }
+
+      await fetch(`/api/otel?${params.toString()}`, { method: 'DELETE' });
+      
+      // Refetch logs and db size
+      const dateValues = getDateRangeValues();
+      const combinedFilters = {
+          ...filters,
+          dateRange,
+          ...dateValues
+      };
+      fetchLogs(combinedFilters);
+      fetchDbSize();
+
     } catch (error) {
       console.error('Error clearing logs:', error);
+    } finally {
+      setIsClearModalVisible(false);
     }
   };
 
@@ -419,6 +475,9 @@ const LogViewer: React.FC = () => {
           <h1 className="text-lg font-bold" style={{ color: NEW_RELIC_GREEN }}>mRelic</h1>
         </div>
         <div className="flex items-center space-x-3">
+            <div className="ml-4 text-xs text-gray-400">
+                DB Size: {dbSize ? (dbSize / 1024 / 1024).toFixed(2) + ' MB' : '...'}
+            </div>
           <div className="flex items-center gap-2">
             <select
               className="px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff] min-w-[140px]"
@@ -521,7 +580,7 @@ const LogViewer: React.FC = () => {
             <label htmlFor="showGraph" className="text-gray-300">Show Graph</label>
           </div>
           <button
-            onClick={clearLogs}
+            onClick={showClearModal}
             className="px-2 py-1 bg-[#ff5555] hover:bg-[#d13b3b] rounded text-xs transition-colors hover:cursor-pointer"
           >
             Clear
@@ -680,6 +739,62 @@ const LogViewer: React.FC = () => {
       <footer className="bg-[#151515] p-2 border-t border-[#333333] text-center text-xs text-gray-500">
         <p>Displaying {filteredLogs.length} of {logs.length} logs</p>
       </footer>
+
+            <ConfigProvider
+                theme={{
+                  algorithm: theme.darkAlgorithm,
+                  token: {
+                    colorPrimary: NEW_RELIC_GREEN,
+                    colorBgBase: '#222222',
+                    colorTextBase: '#e5e7eb',
+                    colorBorder: '#333333',
+                  },
+                }}
+            >
+                <Modal
+                    title="Clear Logs"
+                    open={isClearModalVisible}
+                    onOk={handleClearOk}
+                    onCancel={handleClearCancel}
+                    footer={[
+                        <button key="back" onClick={handleClearCancel} className="px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff] mr-2">
+                            Cancel
+                        </button>,
+                        <button key="submit" onClick={handleClearOk} className="px-3 py-1.5 bg-[#ff5555] hover:bg-[#d13b3b] rounded text-sm text-white transition-colors hover:cursor-pointer">
+                            Clear
+                        </button>,
+                    ]}
+                >
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Service</label>
+                            <select
+                                value={clearService}
+                                onChange={(e) => setClearService(e.target.value)}
+                                className="mt-1 block w-full px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+                            >
+                                <option value="">All Services</option>
+                                {services.map(service => (
+                                    <option key={service} value={service}>{service}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Timeframe</label>
+                            <select
+                                value={clearTimeframe}
+                                onChange={(e) => setClearTimeframe(e.target.value)}
+                                className="mt-1 block w-full px-3 py-1.5 bg-[#222222] border border-[#333333] rounded text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+                            >
+                                <option value="7d">Older than 7 days</option>
+                                <option value="14d">Older than 14 days</option>
+                                <option value="30d">Older than 30 days</option>
+                                <option value="all">All time</option>
+                            </select>
+                        </div>
+                    </div>
+                </Modal>
+            </ConfigProvider>
 
       {drawerOpen && selectedLog && (
         <div className="fixed inset-y-0 right-0 w-1/3 bg-[#222222] border-l border-[#333333] shadow-lg overflow-auto z-10 font-mono">

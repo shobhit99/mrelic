@@ -104,9 +104,13 @@ export async function GET(request: NextRequest) {
 }
 
 // DELETE endpoint to clear logs
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
-    databaseService.clearLogs();
+    const { searchParams } = new URL(request.url);
+    const service = searchParams.get('service') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
+
+    databaseService.clearLogs({ service, endDate });
     return NextResponse.json({
       success: true,
       message: 'Logs cleared successfully'

@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import { LogEntry } from './logStore';
 import { parseSearchQuery, filterLogsBySearchTerms } from './searchParser';
 
@@ -30,6 +31,15 @@ db.exec(`
 `);
 
 class DatabaseService {
+    getDbSize(): number {
+        try {
+            const stats = fs.statSync(dbPath);
+            return stats.size;
+        } catch (error) {
+            console.error('Error getting database size:', error);
+            return 0;
+        }
+    }
   
   // Add a log entry to the database
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -243,9 +253,27 @@ class DatabaseService {
   }
 
   // Clear all logs
-  clearLogs(): void {
-    const stmt = db.prepare('DELETE FROM logs');
-    stmt.run();
+  clearLogs(filters: { service?: string; endDate?: string } = {}): void {
+    let sql = 'DELETE FROM logs';
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (filters.service) {
+        conditions.push('service = ?');
+        params.push(filters.service);
+    }
+
+    if (filters.endDate) {
+        conditions.push('timestamp < ?');
+        params.push(filters.endDate);
+    }
+
+    if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    const stmt = db.prepare(sql);
+    stmt.run(...params);
   }
 
   // Get total count of logs - updated to handle advanced queries
