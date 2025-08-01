@@ -90,6 +90,8 @@ cd any-service
 ./my-app | mrelic
 ```
 
+### Visit the web interface on http://localhost:5959
+
 ## How It Works
 
 1. **Service Detection**: The `mrelic` command automatically detects your service name from the current directory
