@@ -32,6 +32,22 @@ const LogViewer: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const flattenObject = (obj: any, parentKey = '', res: { [key: string]: any } = {}) => {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const propName = parentKey ? `${parentKey}.${key}` : key;
+        if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+          flattenObject(obj[key], propName, res);
+        } else {
+          res[propName] = obj[key];
+        }
+      }
+    }
+    return res;
+  };
+
+  const [isFormatted, setIsFormatted] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const dateRangePresets = [
@@ -686,14 +702,32 @@ const LogViewer: React.FC = () => {
           </div>
           
           <div className="p-3">
-            <div className="text-xs mb-2" style={{ color: NEW_RELIC_GREEN }}>Attributes</div>
+            <div className="text-xs mb-2 flex justify-between items-center" style={{ color: NEW_RELIC_GREEN }}>
+              <span>Attributes</span>
+              <div className="flex items-center">
+                <button
+                  onClick={() => setIsFormatted(true)}
+                  className={`px-2 py-0.5 text-xs rounded-l-md ${isFormatted ? 'bg-green-500 text-white' : 'bg-[#333333] text-gray-300'}`}
+                >
+                  Formatted
+                </button>
+                <button
+                  onClick={() => setIsFormatted(false)}
+                  className={`px-2 py-0.5 text-xs rounded-r-md ${!isFormatted ? 'bg-green-500 text-white' : 'bg-[#333333] text-gray-300'}`}
+                >
+                  Unformatted
+                </button>
+              </div>
+            </div>
             <div className="space-y-1 bg-[#1a1a1a] p-2 rounded">
-              {Object.entries(selectedLog).filter(([key]) =>
-                !['id', 'timestamp', 'message'].includes(key)
+              {Object.entries(
+                isFormatted
+                  ? flattenObject(Object.fromEntries(Object.entries(selectedLog).filter(([key]) => !['id', 'timestamp', 'message'].includes(key))))
+                  : Object.fromEntries(Object.entries(selectedLog).filter(([key]) => !['id', 'timestamp', 'message'].includes(key)))
               ).map(([key, value]) => (
                 <div key={key} className="flex justify-between items-center group">
                   <div className="flex-grow overflow-hidden">
-                    <span className="text-xs text-gray-400">{key}: </span>
+                    <span className="text-xs" style={{ color: '#01b9de' }}>{key}: </span>
                     <span className="ml-2 text-xs text-green-400 break-all whitespace-pre-wrap">
                       {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
                     </span>
