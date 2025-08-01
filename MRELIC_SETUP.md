@@ -63,14 +63,17 @@ Once set up, you can use mrelic with any application:
 ```bash
 # Go application
 cd my-go-service
+mrelic go run main.go
 go run main.go | mrelic
 
 # Node.js application
 cd my-node-service  
+mrelic npm start
 npm start | mrelic
 
 # Python application
 cd my-python-service
+mrelic python app.py
 python app.py | mrelic
 
 # Any application that outputs logs

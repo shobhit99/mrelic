@@ -40,7 +40,11 @@ chmod +x /usr/local/bin/mrelic
 2. Then use it in any project directory:
 ```bash
 cd offer-service
+mrelic go run main.go
 go run main.go | mrelic
+
+mrelic npm run start
+npm run start | mrelic
 ```
 
 ## How it works
