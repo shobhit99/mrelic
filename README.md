@@ -4,6 +4,7 @@
 </p>
 
 <h1 align="center"><b>mRelic</b></h1>
+<h4 align="center" style="color: #666666; font-weight: normal;">New Relic for localhost</h4>
 
 <p align="center">
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/docker-ready-blue.svg" alt="Docker"></a>
