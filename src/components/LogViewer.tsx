@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
 import {
@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceArea,
 } from 'recharts';
 import { DatePicker, ConfigProvider, theme, Modal } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
@@ -45,6 +46,15 @@ const LogViewer: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
+
+  const [zoomRange, setZoomRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [dragStartX, setDragStartX] = useState<number | null>(null);
+  const [dragEndX, setDragEndX] = useState<number | null>(null);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flattenObject = (
     obj: any,
@@ -273,6 +283,131 @@ const LogViewer: React.FC = () => {
     }
   }, [filteredLogs, autoScroll]);
 
+  // Generate chart data (move this logic out of JSX for easier zoom filtering)
+  useEffect(() => {
+    const logsToGraph = filteredLogs.length > 0 ? filteredLogs : [];
+    if (logsToGraph.length === 0) return;
+
+    const timeIntervals: { [key: string]: number } = {};
+    let intervalMs = 60000;
+    switch (dateRange) {
+      case '15m':
+      case '30m':
+        intervalMs = 60000;
+        break;
+      case '1h':
+        intervalMs = 300000;
+        break;
+      case '4h':
+        intervalMs = 900000;
+        break;
+      case '24h':
+        intervalMs = 3600000;
+        break;
+      case '7d':
+        intervalMs = 21600000;
+        break;
+      case '30d':
+        intervalMs = 86400000;
+        break;
+      default:
+        intervalMs = 60000;
+    }
+
+    const dateValues = getDateRangeValues();
+    if (!dateValues.startDate || !dateValues.endDate) return;
+
+    const startTime = new Date(dateValues.startDate).getTime();
+    const endTime = new Date(dateValues.endDate).getTime();
+    if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) return;
+
+    for (let time = startTime; time <= endTime; time += intervalMs) {
+      if (!isNaN(time)) {
+        timeIntervals[new Date(time).toISOString()] = 0;
+      }
+    }
+
+    logsToGraph.forEach((log) => {
+      const logTime = new Date(log.timestamp).getTime();
+      if (!isNaN(logTime)) {
+        const bucketTime =
+          Math.floor((logTime - startTime) / intervalMs) * intervalMs +
+          startTime;
+        if (!isNaN(bucketTime)) {
+          const timeKey = new Date(bucketTime).toISOString();
+          if (timeIntervals[timeKey] !== undefined) {
+            timeIntervals[timeKey]++;
+          }
+        }
+      }
+    });
+    const data = Object.keys(timeIntervals)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+      .map((time) => {
+        const date = new Date(time);
+        let formattedTime;
+        if (intervalMs >= 86400000) {
+          formattedTime = date.toLocaleDateString();
+        } else if (intervalMs >= 3600000) {
+          formattedTime = date.toLocaleString([], {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } else {
+          formattedTime = date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        }
+        return {
+          time: formattedTime,
+          count: timeIntervals[time],
+          fullTime: time,
+        };
+      });
+    setChartData(data);
+  }, [filteredLogs, dateRange, customStartDate, customEndDate]);
+
+  const displayedData = zoomRange
+    ? chartData.filter((d, i) => i >= zoomRange.start && i <= zoomRange.end)
+    : chartData;
+
+  const getChartDataIndex = (displayedIdx: number) => {
+    if (!zoomRange) return displayedIdx;
+    // displayedData is a slice of chartData from zoomRange.start to zoomRange.end
+    return zoomRange.start + displayedIdx;
+  };
+
+  const handleMouseDown = useCallback((e: any) => {
+    if (!e || !e.activeLabel) return;
+    setDragStartX(e.activeTooltipIndex);
+    setDragEndX(null);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: any) => {
+      if (dragStartX !== null && e && e.activeTooltipIndex !== undefined) {
+        setDragEndX(e.activeTooltipIndex);
+      }
+    },
+    [dragStartX],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    if (dragStartX !== null && dragEndX !== null && dragStartX !== dragEndX) {
+      // Map displayedData indices to chartData indices
+      const startIdx = getChartDataIndex(Math.min(dragStartX, dragEndX));
+      const endIdx = getChartDataIndex(Math.max(dragStartX, dragEndX));
+      setZoomRange({ start: startIdx, end: endIdx });
+    }
+    setDragStartX(null);
+    setDragEndX(null);
+  }, [dragStartX, dragEndX, zoomRange]);
+
+  const handleResetZoom = () => setZoomRange(null);
+
   const openLogDrawer = (log: LogEntryType) => {
     setSelectedLog(log);
     setDrawerOpen(true);
@@ -493,6 +628,21 @@ const LogViewer: React.FC = () => {
     }
   };
 
+  const zoomedTimeRange = zoomRange
+    ? {
+        start: chartData[Math.min(zoomRange.start, zoomRange.end)]?.fullTime,
+        end: chartData[Math.max(zoomRange.start, zoomRange.end)]?.fullTime,
+      }
+    : null;
+
+  const displayedLogs = zoomedTimeRange
+    ? filteredLogs.filter(
+        (log) =>
+          log.timestamp >= zoomedTimeRange.start &&
+          log.timestamp <= zoomedTimeRange.end,
+      )
+    : filteredLogs;
+
   return (
     <div className="flex h-screen flex-col bg-[#151515] font-sans text-white">
       <header className="flex items-center justify-between border-b border-[#333333] bg-[#151515] p-2">
@@ -687,109 +837,25 @@ const LogViewer: React.FC = () => {
 
       {showGraph && (
         <div className="border-b border-[#333333] bg-[#151515] p-2">
-          <div className="mb-1 text-xs text-gray-400">Log Volume</div>
+          <div className="mb-1 flex justify-between text-xs text-gray-400">
+            Log Volume
+            {zoomRange && (
+              <button
+                className="ml-2 rounded bg-[#333333] px-2 py-1 text-xs text-gray-300 hover:bg-[#444444]"
+                onClick={handleResetZoom}
+              >
+                Reset Zoom
+              </button>
+            )}
+          </div>
           <div className="h-48 overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={(() => {
-                  const logsToGraph =
-                    filteredLogs.length > 0 ? filteredLogs : [];
-                  if (logsToGraph.length === 0) return [];
-
-                  const timeIntervals: { [key: string]: number } = {};
-                  let intervalMs = 60000;
-                  switch (dateRange) {
-                    case '15m':
-                    case '30m':
-                      intervalMs = 60000;
-                      break;
-                    case '1h':
-                      intervalMs = 300000;
-                      break;
-                    case '4h':
-                      intervalMs = 900000;
-                      break;
-                    case '24h':
-                      intervalMs = 3600000;
-                      break;
-                    case '7d':
-                      intervalMs = 21600000;
-                      break;
-                    case '30d':
-                      intervalMs = 86400000;
-                      break;
-                    default:
-                      intervalMs = 60000;
-                  }
-
-                  const dateValues = getDateRangeValues();
-                  if (!dateValues.startDate || !dateValues.endDate) return [];
-
-                  const startTime = new Date(dateValues.startDate).getTime();
-                  const endTime = new Date(dateValues.endDate).getTime();
-                  if (
-                    isNaN(startTime) ||
-                    isNaN(endTime) ||
-                    startTime >= endTime
-                  )
-                    return [];
-
-                  for (
-                    let time = startTime;
-                    time <= endTime;
-                    time += intervalMs
-                  ) {
-                    if (!isNaN(time)) {
-                      timeIntervals[new Date(time).toISOString()] = 0;
-                    }
-                  }
-
-                  logsToGraph.forEach((log) => {
-                    const logTime = new Date(log.timestamp).getTime();
-                    if (!isNaN(logTime)) {
-                      const bucketTime =
-                        Math.floor((logTime - startTime) / intervalMs) *
-                          intervalMs +
-                        startTime;
-                      if (!isNaN(bucketTime)) {
-                        const timeKey = new Date(bucketTime).toISOString();
-                        if (timeIntervals[timeKey] !== undefined) {
-                          timeIntervals[timeKey]++;
-                        }
-                      }
-                    }
-                  });
-
-                  return Object.keys(timeIntervals)
-                    .sort(
-                      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
-                    )
-                    .map((time) => {
-                      const date = new Date(time);
-                      let formattedTime;
-                      if (intervalMs >= 86400000) {
-                        formattedTime = date.toLocaleDateString();
-                      } else if (intervalMs >= 3600000) {
-                        formattedTime = date.toLocaleString([], {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        });
-                      } else {
-                        formattedTime = date.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        });
-                      }
-                      return {
-                        time: formattedTime,
-                        count: timeIntervals[time],
-                        fullTime: time,
-                      };
-                    });
-                })()}
+                data={displayedData}
                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#333333" />
                 <XAxis
@@ -820,6 +886,15 @@ const LogViewer: React.FC = () => {
                   dot={false}
                   strokeWidth={2}
                 />
+                {dragStartX !== null && dragEndX !== null && (
+                  <ReferenceArea
+                    x1={displayedData[Math.min(dragStartX, dragEndX)]?.time}
+                    x2={displayedData[Math.max(dragStartX, dragEndX)]?.time}
+                    stroke={NEW_RELIC_GREEN}
+                    fill="rgba(34,197,94,0.15)"
+                    ifOverflow="visible"
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -858,7 +933,7 @@ const LogViewer: React.FC = () => {
       </div>
 
       <div className="flex-grow overflow-auto">
-        {filteredLogs.length === 0 ? (
+        {displayedLogs.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-500">
             <p className="text-sm">No logs to display.</p>
           </div>
@@ -890,7 +965,7 @@ const LogViewer: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => {
+              {displayedLogs.map((log) => {
                 const formatTimestamp = (timestamp: string) => {
                   try {
                     const date = new Date(timestamp);
@@ -979,7 +1054,7 @@ const LogViewer: React.FC = () => {
 
       <footer className="border-t border-[#333333] bg-[#151515] p-2 text-center text-xs text-gray-500">
         <p>
-          Displaying {filteredLogs.length} of {logs.length} logs
+          Displaying {displayedLogs.length} of {logs.length} logs
         </p>
       </footer>
 
