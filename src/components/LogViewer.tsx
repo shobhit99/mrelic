@@ -279,6 +279,7 @@ const LogViewer: React.FC = () => {
   };
 
   const closeDrawer = () => {
+    setSelectedLog(null);
     setDrawerOpen(false);
   };
 
