@@ -28,7 +28,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   const handleSearchClick = () => {
     onFilterChange({ search, level, service });
   };
-  
+
   const clearSearch = () => {
     setSearch('');
     onFilterChange({ search: '', level, service });
@@ -39,7 +39,7 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
       handleSearchClick();
     }
   };
-  
+
   useEffect(() => {
     if (search !== props.search && props.search !== undefined) {
       setSearch(props.search);
@@ -66,99 +66,123 @@ const LogFilter: React.FC<LogFilterProps> = (props) => {
   };
 
   return (
-    <div className="bg-[#151515] p-2 border-b border-[#333333]">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex-grow w-full mb-2">
-            <div className="relative flex">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search size={16} color={'#0e74df'} />
+    <div className="border-b border-[#333333] bg-[#151515] p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-2 w-full flex-grow">
+          <div className="relative flex">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search size={16} color={'#0e74df'} />
+            </div>
+            <input
+              type="text"
+              className="flex-grow rounded-l border border-[#333333] bg-[#222222] py-2 pr-10 pl-10 text-sm text-gray-200 focus:outline-none"
+              placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
+              value={search}
+              onChange={handleSearchChange}
+              onKeyPress={handleKeyPress}
+            />
+            {search && (
+              <div className="absolute inset-y-0 right-28 flex items-center pr-3">
+                <button
+                  onClick={clearSearch}
+                  className="text-gray-400 hover:text-white"
+                  title="Clear search"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <input
-                type="text"
-                className="flex-grow pl-10 pr-10 py-2 bg-[#222222] border border-[#333333] rounded-l text-sm text-gray-200 focus:outline-none"
-                placeholder='Search (e.g., key:"value", key:*value*, -key:value, "text")'
-                value={search}
-                onChange={handleSearchChange}
-                onKeyPress={handleKeyPress}
-              />
-              {search && (
-                <div className="absolute inset-y-0 right-28 flex items-center pr-3">
-                    <button
-                        onClick={clearSearch}
-                        className="text-gray-400 hover:text-white"
-                        title="Clear search"
-                    >
-                        <X size={16} />
-                    </button>
-                </div>
-              )}
-              <button
-                onClick={handleSearchClick}
-                className="px-4 py-2 text-white text-sm rounded-r focus:outline-none focus:ring-1 transition-colors hover:bg-[#36a3ff] hover:text-white cursor-pointer"
-                style={{ backgroundColor: '#0e74df',  borderColor: '#0e74df'}}
-              >
-                Search
-              </button>
-              <div className="absolute inset-y-0 right-20 flex items-center pr-3">
-                <div className="group relative">
-                  <svg className="w-4 h-4 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="absolute hidden group-hover:block right-0 top-full mt-2 w-64 p-2 bg-[#333333] text-xs text-gray-200 rounded shadow-lg z-10">
-                    <p className="font-bold mb-1">Search Syntax:</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li><code>key:&quot;value&quot;</code> - Exact match</li>
-                      <li><code>key:*value*</code> - Contains value</li>
-                      <li><code>-key:value</code> - Exclude this value</li>
-                      <li><code>&quot;text&quot;</code> - Search all fields</li>
-                      <li><code>&quot;text1&quot; &quot;text2&quot;</code> - Multiple terms</li>
-                    </ul>
-                  </div>
+            )}
+            <button
+              onClick={handleSearchClick}
+              className="cursor-pointer rounded-r px-4 py-2 text-sm text-white transition-colors hover:bg-[#36a3ff] hover:text-white focus:ring-1 focus:outline-none"
+              style={{ backgroundColor: '#0e74df', borderColor: '#0e74df' }}
+            >
+              Search
+            </button>
+            <div className="absolute inset-y-0 right-20 flex items-center pr-3">
+              <div className="group relative">
+                <svg
+                  className="h-4 w-4 cursor-help text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div className="absolute top-full right-0 z-10 mt-2 hidden w-64 rounded bg-[#333333] p-2 text-xs text-gray-200 shadow-lg group-hover:block">
+                  <p className="mb-1 font-bold">Search Syntax:</p>
+                  <ul className="list-disc space-y-1 pl-4">
+                    <li>
+                      <code>key:&quot;value&quot;</code> - Exact match
+                    </li>
+                    <li>
+                      <code>key:*value*</code> - Contains value
+                    </li>
+                    <li>
+                      <code>-key:value</code> - Exclude this value
+                    </li>
+                    <li>
+                      <code>&quot;text&quot;</code> - Search all fields
+                    </li>
+                    <li>
+                      <code>&quot;text1&quot; &quot;text2&quot;</code> -
+                      Multiple terms
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2 items-center w-full">
+        </div>
 
+        <div className="flex w-full flex-wrap items-center gap-2">
           <div className="flex items-center">
-            <span className="text-xs text-gray-400 mr-1">Level:</span>
+            <span className="mr-1 text-xs text-gray-400">Level:</span>
             <select
-              className="px-2 py-1 bg-[#222222] border border-[#333333] rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+              className="rounded border border-[#333333] bg-[#222222] px-2 py-1 text-xs text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
               value={level}
               onChange={handleLevelChange}
             >
               <option value="">All</option>
-              {levels.map(lvl => (
-                <option key={lvl} value={lvl}>{lvl}</option>
+              {levels.map((lvl) => (
+                <option key={lvl} value={lvl}>
+                  {lvl}
+                </option>
               ))}
             </select>
           </div>
 
           <div className="flex items-center">
-            <span className="text-xs text-gray-400 mr-1">Service:</span>
+            <span className="mr-1 text-xs text-gray-400">Service:</span>
             <select
-              className="px-2 py-1 bg-[#222222] border border-[#333333] rounded text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-[#00b9ff]"
+              className="rounded border border-[#333333] bg-[#222222] px-2 py-1 text-xs text-gray-200 focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
               value={service}
               onChange={handleServiceChange}
             >
               <option value="">All</option>
-              {services.map(svc => (
-                <option key={svc} value={svc}>{svc}</option>
+              {services.map((svc) => (
+                <option key={svc} value={svc}>
+                  {svc}
+                </option>
               ))}
             </select>
           </div>
 
-            <div>
-              <button
-                className="px-2 py-1 bg-[#333333] hover:bg-[#444444] text-xs text-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-[#00b9ff] transition-colors"
-                onClick={clearFilters}
-              >
-                Clear
-              </button>
-            </div>
+          <div>
+            <button
+              className="rounded bg-[#333333] px-2 py-1 text-xs text-gray-200 transition-colors hover:bg-[#444444] focus:ring-1 focus:ring-[#00b9ff] focus:outline-none"
+              onClick={clearFilters}
+            >
+              Clear
+            </button>
           </div>
         </div>
+      </div>
     </div>
   );
 };

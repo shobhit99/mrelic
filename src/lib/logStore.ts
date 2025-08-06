@@ -24,7 +24,7 @@ class LogStore {
   addLog(log: any): LogEntry {
     // Ensure the log has a message property
     const message = log.message || log.msg || JSON.stringify(log);
-    
+
     // Create a log entry with a unique ID
     const logEntry: LogEntry = {
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
@@ -35,7 +35,7 @@ class LogStore {
 
     // Add to the beginning of the array for newest-first order
     this.logs.unshift(logEntry);
-    
+
     // Trim logs if we exceed the maximum
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(0, this.maxLogs);
@@ -61,30 +61,32 @@ class LogStore {
   // Search logs by query string (searches in message field)
   searchLogs(query: string): LogEntry[] {
     if (!query) return this.logs;
-    
+
     const lowerQuery = query.toLowerCase();
-    return this.logs.filter(log => 
-      log.message.toLowerCase().includes(lowerQuery) ||
-      (log.service && log.service.toLowerCase().includes(lowerQuery)) ||
-      (log.level && log.level.toLowerCase().includes(lowerQuery))
+    return this.logs.filter(
+      (log) =>
+        log.message.toLowerCase().includes(lowerQuery) ||
+        (log.service && log.service.toLowerCase().includes(lowerQuery)) ||
+        (log.level && log.level.toLowerCase().includes(lowerQuery)),
     );
   }
 
   // Filter logs by level
   filterByLevel(level: string): LogEntry[] {
     if (!level) return this.logs;
-    
-    return this.logs.filter(log => 
-      log.level && log.level.toLowerCase() === level.toLowerCase()
+
+    return this.logs.filter(
+      (log) => log.level && log.level.toLowerCase() === level.toLowerCase(),
     );
   }
 
   // Filter logs by service
   filterByService(service: string): LogEntry[] {
     if (!service) return this.logs;
-    
-    return this.logs.filter(log => 
-      log.service && log.service.toLowerCase() === service.toLowerCase()
+
+    return this.logs.filter(
+      (log) =>
+        log.service && log.service.toLowerCase() === service.toLowerCase(),
     );
   }
 }

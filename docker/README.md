@@ -11,6 +11,7 @@ docker build -f Dockerfile.mrelic -t repo/mrelic .
 ## Running the Container
 
 ### Basic Usage
+
 ```bash
 # Run with default settings (port 5959, db at ~/Documents/mrelic.db)
 docker run -d -p 5959:5959 -v ~/Documents:/data repo/mrelic
@@ -22,6 +23,7 @@ docker run -d -p 8080:8080 -v ~/Documents:/data repo/mrelic --port 8080 --db /da
 ### Using mrelic command
 
 1. First, make the mrelic command available on your host:
+
 ```bash
 # Create a wrapper script
 cat > /usr/local/bin/mrelic << 'EOF'
@@ -38,6 +40,7 @@ chmod +x /usr/local/bin/mrelic
 ```
 
 2. Then use it in any project directory:
+
 ```bash
 cd offer-service
 mrelic go run main.go
@@ -64,4 +67,5 @@ npm run start | mrelic
 ## Accessing the Web Interface
 
 Once the container is running, access the log viewer at:
-- http://localhost:5959 (or your custom port) 
+
+- http://localhost:5959 (or your custom port)

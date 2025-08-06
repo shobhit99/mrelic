@@ -10,11 +10,11 @@ function parseFluentConfig(configPath) {
   try {
     const config = fs.readFileSync(configPath, 'utf8');
     const lines = config.split('\n');
-    
+
     let serverHost = 'localhost';
     let serverPort = '5959';
     let serviceName = 'unknown-service';
-    
+
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith('Host ')) {
@@ -25,7 +25,7 @@ function parseFluentConfig(configPath) {
         serviceName = trimmed.split(/\s+/)[2];
       }
     }
-    
+
     return { serverHost, serverPort, serviceName };
   } catch (error) {
     console.error('Error reading fluent config:', error.message);
@@ -36,7 +36,8 @@ function parseFluentConfig(configPath) {
 // Get configuration from command line arguments or environment variables
 let serverHost = process.env.MRELIC_HOST || 'localhost';
 let serverPort = process.env.MRELIC_PORT || '5959';
-let serviceName = process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
+let serviceName =
+  process.argv[2] || process.env.SERVICE_NAME || path.basename(process.cwd());
 
 // Check if we have a fluent-bit config file path as argument
 if (process.argv[2] && process.argv[2].endsWith('.conf')) {
@@ -60,7 +61,7 @@ console.log(`Sending logs to: http://${serverHost}:${serverPort}/api/otel`);
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-  terminal: false
+  terminal: false,
 });
 
 // Process each log line
@@ -76,7 +77,7 @@ rl.on('line', (line) => {
         timestamp: Date.now(),
         level: 'info',
         message: line,
-        service: serviceName
+        service: serviceName,
       };
     }
 
@@ -96,20 +97,24 @@ rl.on('line', (line) => {
     const formattedLog = {
       timestamp: logData.timestamp,
       level: logData.level || 'info',
-      message: logData.message || logData.msg || '',  // Handle both 'message' and 'msg' (logrus)
-      meta: {}
+      message: logData.message || logData.msg || '', // Handle both 'message' and 'msg' (logrus)
+      meta: {},
     };
 
     // Move all other fields to meta
     for (const [key, value] of Object.entries(logData)) {
-      if (key !== 'timestamp' && key !== 'level' && key !== 'message' && key !== 'msg') {
+      if (
+        key !== 'timestamp' &&
+        key !== 'level' &&
+        key !== 'message' &&
+        key !== 'msg'
+      ) {
         formattedLog.meta[key] = value;
       }
     }
 
     // Send to server
     sendLogToServer(formattedLog);
-
   } catch (error) {
     console.error('Error processing log line:', error);
   }
@@ -132,8 +137,8 @@ function sendLogToServer(logData) {
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
-      'service.name': serviceName
-    }
+      'service.name': serviceName,
+    },
   };
 
   const req = http.request(options, (res) => {
@@ -159,4 +164,4 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   console.log('\n🛑 Stopping log processor');
   process.exit(0);
-}); 
+});

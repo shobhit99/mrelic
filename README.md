@@ -37,6 +37,7 @@ The fastest way to get started:
 ```
 
 This will:
+
 1. Build the Docker image
 2. Start the mrelic server
 3. Set up the `mrelic` command
@@ -47,11 +48,13 @@ This will:
 If you prefer to set things up manually:
 
 ### 1. Build the Image
+
 ```bash
 docker build -f Dockerfile.mrelic -t repo/mrelic .
 ```
 
 ### 2. Start the Server
+
 ```bash
 # Basic setup (port 5959, database at ~/Documents/mrelic.db)
 docker run -d --name mrelic-server -p 5959:5959 -v ~/Documents:/data repo/mrelic
@@ -61,6 +64,7 @@ docker run -d --name mrelic-server -p 8080:8080 -v ~/Documents:/data repo/mrelic
 ```
 
 ### 3. Set up the mrelic command
+
 ```bash
 ./scripts/build-mrelic.sh
 ```
@@ -76,7 +80,7 @@ mrelic go run main.go
 go run main.go | mrelic
 
 # Node.js application
-cd my-node-service  
+cd my-node-service
 mrelic npm start
 npm start | mrelic
 
@@ -145,32 +149,37 @@ docker rm mrelic-server
 ## Troubleshooting
 
 ### Server not starting
+
 ```bash
 docker logs mrelic-server
 ```
 
 ### Can't connect to server
+
 1. Check if container is running: `docker ps`
 2. Check port mapping: `docker port mrelic-server`
 3. Test connection: `curl http://localhost:5959/api/health`
 
 ### mrelic command not found
+
 Make sure you ran the setup script or manually created the command as shown above.
 
 ## Advanced Usage
 
 ### Multiple Services
+
 Each service automatically gets its own configuration based on the directory name:
 
 ```bash
 cd payments-service
 go run main.go | mrelic  # Shows as "payments-service"
 
-cd user-service  
+cd user-service
 python app.py | mrelic   # Shows as "user-service"
 ```
 
 ### Custom Service Names
+
 You can override the service name by setting the directory name or using a custom approach in your application.
 
 ---
