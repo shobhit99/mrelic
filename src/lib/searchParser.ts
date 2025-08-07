@@ -55,7 +55,7 @@ export function parseSearchQuery(query: string): SearchTerm[] {
     // Check if this is a key:value term or a plain text term
     let colonPosition = -1;
     const keyStart = currentPosition;
-    
+
     // Look for a colon that's not inside quotes
     let insideQuotes = false;
     for (let i = currentPosition; i < queryLength; i++) {
@@ -83,32 +83,40 @@ export function parseSearchQuery(query: string): SearchTerm[] {
         // Extract quoted value
         currentPosition++; // Skip opening quote
         const valueStart = currentPosition;
-        
+
         // Find closing quote
-        while (currentPosition < queryLength && query[currentPosition] !== '"') {
+        while (
+          currentPosition < queryLength &&
+          query[currentPosition] !== '"'
+        ) {
           currentPosition++;
         }
-        
+
         value = query.substring(valueStart, currentPosition);
-        
+
         if (currentPosition < queryLength) {
           currentPosition++; // Skip closing quote
         }
-      } else if (currentPosition < queryLength && query[currentPosition] === '*') {
+      } else if (
+        currentPosition < queryLength &&
+        query[currentPosition] === '*'
+      ) {
         // This is a wildcard search
         isWildcard = true;
         currentPosition++; // Skip opening asterisk
         const valueStart = currentPosition;
-        
+
         // Find the end of the value (space or end of string)
-        while (currentPosition < queryLength && 
-               query[currentPosition] !== ' ' && 
-               query[currentPosition] !== '*') {
+        while (
+          currentPosition < queryLength &&
+          query[currentPosition] !== ' ' &&
+          query[currentPosition] !== '*'
+        ) {
           currentPosition++;
         }
-        
+
         value = query.substring(valueStart, currentPosition);
-        
+
         // Check for closing asterisk
         if (currentPosition < queryLength && query[currentPosition] === '*') {
           currentPosition++; // Skip closing asterisk
@@ -120,11 +128,14 @@ export function parseSearchQuery(query: string): SearchTerm[] {
       } else {
         // Extract non-quoted value until space or end
         const valueStart = currentPosition;
-        
-        while (currentPosition < queryLength && query[currentPosition] !== ' ') {
+
+        while (
+          currentPosition < queryLength &&
+          query[currentPosition] !== ' '
+        ) {
           currentPosition++;
         }
-        
+
         value = query.substring(valueStart, currentPosition);
       }
 
@@ -132,43 +143,49 @@ export function parseSearchQuery(query: string): SearchTerm[] {
         type: isWildcard ? 'WILDCARD' : 'KEY_VALUE',
         key,
         value,
-        negate: isNegation
+        negate: isNegation,
       });
     } else {
       // This is a plain text search term
       let value = '';
-      
+
       // Check if it starts with a quote
       if (currentPosition < queryLength && query[currentPosition] === '"') {
         // Extract quoted value
         currentPosition++; // Skip opening quote
         const valueStart = currentPosition;
-        
+
         // Find closing quote
-        while (currentPosition < queryLength && query[currentPosition] !== '"') {
+        while (
+          currentPosition < queryLength &&
+          query[currentPosition] !== '"'
+        ) {
           currentPosition++;
         }
-        
+
         value = query.substring(valueStart, currentPosition);
-        
+
         if (currentPosition < queryLength) {
           currentPosition++; // Skip closing quote
         }
       } else {
         // Extract non-quoted value until space or end
         const valueStart = currentPosition;
-        
-        while (currentPosition < queryLength && query[currentPosition] !== ' ') {
+
+        while (
+          currentPosition < queryLength &&
+          query[currentPosition] !== ' '
+        ) {
           currentPosition++;
         }
-        
+
         value = query.substring(valueStart, currentPosition);
       }
 
       terms.push({
         type: 'TEXT',
         value,
-        negate: isNegation
+        negate: isNegation,
       });
     }
   }
@@ -179,12 +196,15 @@ export function parseSearchQuery(query: string): SearchTerm[] {
 /**
  * Filter logs based on the parsed search terms
  */
-export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTerm[]): LogEntry[] {
+export function filterLogsBySearchTerms(
+  logs: LogEntry[],
+  searchTerms: SearchTerm[],
+): LogEntry[] {
   if (searchTerms.length === 0) {
     return logs;
   }
 
-  return logs.filter(log => {
+  return logs.filter((log) => {
     // Check each search term against the log
     for (const term of searchTerms) {
       let matches = false;
@@ -208,7 +228,7 @@ export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTer
       } else if (term.type === 'TEXT') {
         // For plain text terms, check if any field contains the value
         const termValue = term.value;
-        
+
         // Check in all fields
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for (const [key, value] of Object.entries(log)) {
@@ -231,7 +251,7 @@ export function filterLogsBySearchTerms(logs: LogEntry[], searchTerms: SearchTer
                 matches = true;
                 break;
               }
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e) {
               // Ignore stringify errors
             }
@@ -266,9 +286,9 @@ export function filterLogsByQuery(logs: LogEntry[], query: string): LogEntry[] {
   console.log('Filtering logs with query:', query);
   const searchTerms = parseSearchQuery(query);
   console.log('Parsed search terms:', searchTerms);
-  
+
   const filteredLogs = filterLogsBySearchTerms(logs, searchTerms);
   console.log(`Filtered ${logs.length} logs down to ${filteredLogs.length}`);
-  
+
   return filteredLogs;
 }

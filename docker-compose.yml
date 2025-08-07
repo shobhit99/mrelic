@@ -5,7 +5,7 @@ services:
   prettylogs:
     build: .
     ports:
-      - "5959:5959"
+      - '5959:5959'
     environment:
       - NODE_ENV=development
     volumes:
@@ -34,7 +34,7 @@ services:
   test-service:
     image: nginx:alpine
     ports:
-      - "8080:80"
+      - '8080:80'
     environment:
       - SERVICE_NAME=test-nginx
     volumes:
@@ -52,4 +52,4 @@ services:
 
 networks:
   log-network:
-    driver: bridge 
+    driver: bridge

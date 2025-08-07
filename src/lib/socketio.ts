@@ -17,10 +17,10 @@ export function initSocketIO(server: HTTPServer | HTTPSServer) {
 
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
-    
+
     // Send all current logs to the newly connected client
     socket.emit('logs', logStore.getLogs());
-    
+
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
     });

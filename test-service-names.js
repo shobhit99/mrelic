@@ -3,13 +3,13 @@ const fetch = require('node-fetch');
 // Test different service names
 const services = [
   'user-service',
-  'payment-service', 
+  'payment-service',
   'inventory-service',
   'notification-service',
   'api-gateway',
   'auth-service',
   'email-service',
-  'sms-service'
+  'sms-service',
 ];
 
 const levels = ['debug', 'info', 'warn', 'error'];
@@ -23,7 +23,7 @@ async function sendTestLog(service, level, message) {
     message: message,
     environment: 'test',
     version: '1.0.0',
-    instance: `instance-${Math.floor(Math.random() * 1000)}`
+    instance: `instance-${Math.floor(Math.random() * 1000)}`,
   };
 
   try {
@@ -54,7 +54,7 @@ async function runTests() {
     const level = levels[Math.floor(Math.random() * levels.length)];
     const message = `Test log from ${service} service`;
     await sendTestLog(service, level, message);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between logs
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms between logs
   }
 
   // Test 2: Send logs with additional metadata
@@ -72,7 +72,7 @@ async function runTests() {
     userId: 'user123',
     requestId: 'req-456',
     environment: 'production',
-    version: '2.1.0'
+    version: '2.1.0',
   };
 
   try {
@@ -98,7 +98,7 @@ async function runTests() {
   const logWithoutService = {
     timestamp: new Date().toISOString(),
     level: 'warn',
-    message: 'This log has no service name specified'
+    message: 'This log has no service name specified',
   };
 
   try {
@@ -113,15 +113,19 @@ async function runTests() {
     if (response.ok) {
       console.log('✅ Sent log without service name');
     } else {
-      console.log(`❌ Failed to send log without service name: ${response.status}`);
+      console.log(
+        `❌ Failed to send log without service name: ${response.status}`,
+      );
     }
   } catch (error) {
     console.log(`❌ Error sending log without service name: ${error.message}`);
   }
 
   console.log('\n✅ All tests completed!');
-  console.log('📊 Check your application at http://localhost:5959 to see the logs with service names');
+  console.log(
+    '📊 Check your application at http://localhost:5959 to see the logs with service names',
+  );
 }
 
 // Run the tests
-runTests().catch(console.error); 
+runTests().catch(console.error);

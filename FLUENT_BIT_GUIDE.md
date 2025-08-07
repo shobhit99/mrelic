@@ -1,12 +1,15 @@
 # Fluent Bit Configuration Guide
 
 ## Overview
+
 Fluent Bit is a lightweight log processor and forwarder that can collect logs from various sources, process them, and send them to different destinations.
 
 ## Main Configuration Sections
 
 ### 1. SERVICE Section
+
 Global configuration for Fluent Bit:
+
 ```ini
 [SERVICE]
     Flush        1
@@ -20,6 +23,7 @@ Global configuration for Fluent Bit:
 ### 2. INPUT Plugins (Data Sources)
 
 #### Tail Input (Read log files)
+
 ```ini
 [INPUT]
     Name              tail
@@ -32,6 +36,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Systemd Input (Read systemd journal)
+
 ```ini
 [INPUT]
     Name              systemd
@@ -41,6 +46,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### TCP Input (Receive logs over TCP)
+
 ```ini
 [INPUT]
     Name              tcp
@@ -52,6 +58,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### HTTP Input (Receive logs via HTTP)
+
 ```ini
 [INPUT]
     Name              http
@@ -65,6 +72,7 @@ Global configuration for Fluent Bit:
 ### 3. FILTER Plugins (Data Processing)
 
 #### Record Modifier (Add/modify fields)
+
 ```ini
 [FILTER]
     Name                modify
@@ -77,6 +85,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Kubernetes Filter (Add K8s metadata)
+
 ```ini
 [FILTER]
     Name                kubernetes
@@ -92,6 +101,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Parser Filter (Parse structured data)
+
 ```ini
 [FILTER]
     Name                parser
@@ -102,6 +112,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Grep Filter (Filter by content)
+
 ```ini
 [FILTER]
     Name                grep
@@ -111,6 +122,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Lua Filter (Custom processing)
+
 ```ini
 [FILTER]
     Name                lua
@@ -122,6 +134,7 @@ Global configuration for Fluent Bit:
 ### 4. OUTPUT Plugins (Destinations)
 
 #### HTTP Output (Send to HTTP endpoint)
+
 ```ini
 [OUTPUT]
     Name                http
@@ -138,6 +151,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Forward Output (Send to Fluentd)
+
 ```ini
 [OUTPUT]
     Name                forward
@@ -149,6 +163,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Elasticsearch Output
+
 ```ini
 [OUTPUT]
     Name                es
@@ -163,6 +178,7 @@ Global configuration for Fluent Bit:
 ```
 
 #### Kafka Output
+
 ```ini
 [OUTPUT]
     Name                kafka
@@ -176,6 +192,7 @@ Global configuration for Fluent Bit:
 ## Service Name Configuration Options
 
 ### Option 1: Environment Variables
+
 ```ini
 [FILTER]
     Name                modify
@@ -186,6 +203,7 @@ Global configuration for Fluent Bit:
 ```
 
 ### Option 2: Kubernetes Labels
+
 ```ini
 [FILTER]
     Name                kubernetes
@@ -201,6 +219,7 @@ Global configuration for Fluent Bit:
 ```
 
 ### Option 3: Container Labels
+
 ```ini
 [FILTER]
     Name                modify
@@ -211,6 +230,7 @@ Global configuration for Fluent Bit:
 ```
 
 ### Option 4: File Path Patterns
+
 ```ini
 [FILTER]
     Name                lua
@@ -222,6 +242,7 @@ Global configuration for Fluent Bit:
 ## Advanced Configuration Examples
 
 ### Multi-line Log Processing
+
 ```ini
 [INPUT]
     Name              tail
@@ -237,6 +258,7 @@ Global configuration for Fluent Bit:
 ```
 
 ### Log Aggregation with Service Names
+
 ```ini
 [SERVICE]
     Flush        1
@@ -276,6 +298,7 @@ Global configuration for Fluent Bit:
 ```
 
 ### Docker Compose with Service Names
+
 ```yaml
 version: '3.8'
 services:
@@ -306,16 +329,19 @@ services:
 ## Testing Your Configuration
 
 1. Start your application with Fluent Bit:
+
 ```bash
 docker-compose up -d
 ```
 
 2. Check Fluent Bit logs:
+
 ```bash
 docker-compose logs fluent-bit
 ```
 
 3. Send test logs:
+
 ```bash
 curl -X POST http://localhost:5959/api/otel \
   -H "Content-Type: application/json" \
@@ -332,7 +358,9 @@ curl -X POST http://localhost:5959/api/otel \
 ## Common Issues and Solutions
 
 ### Issue: Service name not appearing in logs
+
 **Solution**: Ensure the service name is being added in the filter chain:
+
 ```ini
 [FILTER]
     Name                modify
@@ -342,7 +370,9 @@ curl -X POST http://localhost:5959/api/otel \
 ```
 
 ### Issue: Logs not reaching your application
+
 **Solution**: Check the HTTP output configuration:
+
 ```ini
 [OUTPUT]
     Name                http
@@ -355,7 +385,9 @@ curl -X POST http://localhost:5959/api/otel \
 ```
 
 ### Issue: Parsing errors
+
 **Solution**: Use appropriate parsers for your log format:
+
 ```ini
 [PARSER]
     Name        json
@@ -376,4 +408,4 @@ curl -X POST http://localhost:5959/api/otel \
 7. **Monitor Fluent Bit logs** for errors
 8. **Use environment variables** for configuration
 9. **Implement retry logic** for network failures
-10. **Secure your endpoints** with authentication 
+10. **Secure your endpoints** with authentication
