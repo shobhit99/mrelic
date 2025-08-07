@@ -923,7 +923,7 @@ const LogViewer: React.FC = () => {
                   <tr
                     key={log.id}
                     data-selected={selectedLog?.id === log.id}
-                    className="cursor-pointer border-b border-[#333333] text-gray-300 transition-colors duration-500 hover:bg-[#222222] data-[selected=true]:bg-green-400 data-[selected=true]:text-black"
+                    className="cursor-pointer border-b border-[#333333] text-gray-300 transition-colors duration-500 hover:bg-[#222222] data-[selected=true]:bg-green-[#fefefe2e] data-[selected=true]:text-black"
                     onClick={() => openLogDrawer(log)}
                   >
                     {selectedColumns.includes('timestamp') && (
