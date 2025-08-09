@@ -127,9 +127,11 @@ function generateRandomLog() {
 
       message = `Inventory ${inventoryAction} - ${item} (${quantity})`;
       additionalData = {
-        action: inventoryAction,
-        item,
-        quantity,
+        inventory: {
+          item,
+          action: inventoryAction,
+          quantity,
+        },
         warehouseId: `wh_${Math.floor(Math.random() * 10)}`,
         timestamp,
       };

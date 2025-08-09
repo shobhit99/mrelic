@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
 import LogFilter from './LogFilter';
 import { LogEntry as LogEntryType } from '@/lib/logStore';
 import {
@@ -16,12 +22,33 @@ import {
 import { DatePicker, ConfigProvider, theme, Modal } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { FilterIcon, Copy, Check } from 'lucide-react';
+import { Switch } from './ui/switch';
 
 const NEW_RELIC_GREEN = '#22c55e'; // A nice green similar to New Relic's
 const NEW_RELIC_GREEN_DARK = '#16a34a';
 
+function getZoomInterval(startTime: number, endTime: number) {
+  const totalMs = endTime - startTime;
+  let newIntervalMs = Math.ceil(totalMs / 100); // aim for ~100 buckets
+
+  // Snap to nice boundaries
+  if (newIntervalMs <= 5000) newIntervalMs = 5000;
+  else if (newIntervalMs <= 10000) newIntervalMs = 10000;
+  else if (newIntervalMs <= 15000) newIntervalMs = 15000;
+  else if (newIntervalMs <= 30000) newIntervalMs = 30000;
+  else if (newIntervalMs <= 60000) newIntervalMs = 60000;
+  else if (newIntervalMs <= 300000) newIntervalMs = 300000;
+  else if (newIntervalMs <= 900000) newIntervalMs = 900000;
+  else if (newIntervalMs <= 3600000) newIntervalMs = 3600000;
+  else if (newIntervalMs <= 21600000) newIntervalMs = 21600000;
+  else newIntervalMs = 86400000;
+
+  return newIntervalMs;
+}
+
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
+  const [total, setTotal] = useState<number>(0);
   const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
   const [dbSize, setDbSize] = useState<number>(0);
   const [isClearModalVisible, setIsClearModalVisible] =
@@ -47,13 +74,14 @@ const LogViewer: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDate, setShowCustomDate] = useState(false);
 
-  const [zoomRange, setZoomRange] = useState<{
-    start: number;
-    end: number;
-  } | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [dragEndX, setDragEndX] = useState<number | null>(null);
+
+  // === NEW: zoom state ===
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomStartTime, setZoomStartTime] = useState<number | null>(null); // ms
+  const [zoomEndTime, setZoomEndTime] = useState<number | null>(null); // ms
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flattenObject = (
@@ -156,7 +184,7 @@ const LogViewer: React.FC = () => {
     }
 
     return {
-      startDate: startDate.toISOString(),
+      startDate: startDate.set('second', 0).toISOString(),
       endDate: now.toISOString(),
     };
   };
@@ -209,10 +237,17 @@ const LogViewer: React.FC = () => {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         );
         setLogs(sortedLogs);
-        setFilteredLogs(sortedLogs);
+
+        // === NEW: only overwrite filteredLogs if NOT zoomed ===
+        if (!isZoomed) {
+          setFilteredLogs(sortedLogs);
+        }
 
         if (data.levels) setLevels(data.levels);
         if (data.services) setServices(data.services);
+        if (data.totalCount !== undefined) {
+          setTotal(data.totalCount);
+        }
 
         setIsConnected(true);
       }
@@ -283,68 +318,110 @@ const LogViewer: React.FC = () => {
     }
   }, [filteredLogs, autoScroll]);
 
-  // Generate chart data (move this logic out of JSX for easier zoom filtering)
+  // Generate chart data (moved logic to handle zoom vs normal)
   useEffect(() => {
     const logsToGraph = filteredLogs.length > 0 ? filteredLogs : [];
-    if (logsToGraph.length === 0) return;
-
-    const timeIntervals: { [key: string]: number } = {};
-    let intervalMs = 60000;
-    switch (dateRange) {
-      case '15m':
-      case '30m':
-        intervalMs = 60000;
-        break;
-      case '1h':
-        intervalMs = 300000;
-        break;
-      case '4h':
-        intervalMs = 900000;
-        break;
-      case '24h':
-        intervalMs = 3600000;
-        break;
-      case '7d':
-        intervalMs = 21600000;
-        break;
-      case '30d':
-        intervalMs = 86400000;
-        break;
-      default:
-        intervalMs = 60000;
+    if (logsToGraph.length === 0) {
+      setChartData([]);
+      return;
     }
 
-    const dateValues = getDateRangeValues();
-    if (!dateValues.startDate || !dateValues.endDate) return;
+    let intervalMs = 60000;
+    let startTime = NaN;
+    let endTime = NaN;
 
-    const startTime = new Date(dateValues.startDate).getTime();
-    const endTime = new Date(dateValues.endDate).getTime();
-    if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) return;
+    if (isZoomed && zoomStartTime !== null && zoomEndTime !== null) {
+      // Use zoom window (ms)
+      startTime = zoomStartTime;
+      endTime = zoomEndTime;
 
+      intervalMs = getZoomInterval(startTime, endTime);
+    } else {
+      // Normal (non-zoom) chart building — use dateRange presets
+      switch (dateRange) {
+        case '15m':
+        case '30m':
+          intervalMs = 60000;
+          break;
+        case '1h':
+          intervalMs = 300000;
+          break;
+        case '4h':
+          intervalMs = 900000;
+          break;
+        case '24h':
+          intervalMs = 3600000;
+          break;
+        case '7d':
+          intervalMs = 21600000;
+          break;
+        case '30d':
+          intervalMs = 86400000;
+          break;
+        default:
+          intervalMs = 60000;
+      }
+
+      const dateValues = getDateRangeValues();
+      if (!dateValues.startDate || !dateValues.endDate) {
+        setChartData([]);
+        return;
+      }
+      startTime = new Date(dateValues.startDate).getTime();
+      endTime = new Date(dateValues.endDate).getTime();
+      if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+        setChartData([]);
+        return;
+      }
+    }
+
+    // Ensure startTime and endTime are valid
+    if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+      setChartData([]);
+      return;
+    }
+
+    const timeIntervals: Record<number, number> = {};
+
+    let lastBucketTime = startTime;
     for (let time = startTime; time <= endTime; time += intervalMs) {
       if (!isNaN(time)) {
-        timeIntervals[new Date(time).toISOString()] = 0;
+        timeIntervals[time] = 0;
+        lastBucketTime = time;
       }
+      // safety: prevent infinite loop for bad intervalMs
+      if (intervalMs <= 0) break;
     }
 
     logsToGraph.forEach((log) => {
       const logTime = new Date(log.timestamp).getTime();
-      if (!isNaN(logTime)) {
-        const bucketTime =
+      if (
+        !isNaN(logTime) &&
+        logTime >= startTime &&
+        logTime <= endTime + intervalMs
+      ) {
+        let bucketTime =
           Math.floor((logTime - startTime) / intervalMs) * intervalMs +
           startTime;
-        if (!isNaN(bucketTime)) {
-          const timeKey = new Date(bucketTime).toISOString();
-          if (timeIntervals[timeKey] !== undefined) {
-            timeIntervals[timeKey]++;
-          }
+
+        if (bucketTime < startTime) {
+          bucketTime = startTime;
+        }
+
+        if (logTime >= endTime) {
+          bucketTime = lastBucketTime;
+        }
+
+        if (!isNaN(bucketTime) && timeIntervals[bucketTime] !== undefined) {
+          timeIntervals[bucketTime]++;
         }
       }
     });
+
     const data = Object.keys(timeIntervals)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
       .map((time) => {
-        const date = new Date(time);
+        const date = new Date(+time);
         let formattedTime;
         if (intervalMs >= 86400000) {
           formattedTime = date.toLocaleDateString();
@@ -355,30 +432,34 @@ const LogViewer: React.FC = () => {
             hour: '2-digit',
             minute: '2-digit',
           });
-        } else {
+        } else if (intervalMs >= 60000) {
           formattedTime = date.toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
           });
+        } else {
+          formattedTime = date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
         }
         return {
           time: formattedTime,
-          count: timeIntervals[time],
-          fullTime: time,
+          count: timeIntervals[date.getTime()] || 0,
+          fullTime: date.toISOString(),
         };
       });
     setChartData(data);
-  }, [filteredLogs, dateRange, customStartDate, customEndDate]);
-
-  const displayedData = zoomRange
-    ? chartData.filter((d, i) => i >= zoomRange.start && i <= zoomRange.end)
-    : chartData;
-
-  const getChartDataIndex = (displayedIdx: number) => {
-    if (!zoomRange) return displayedIdx;
-    // displayedData is a slice of chartData from zoomRange.start to zoomRange.end
-    return zoomRange.start + displayedIdx;
-  };
+  }, [
+    filteredLogs,
+    dateRange,
+    customStartDate,
+    customEndDate,
+    isZoomed,
+    zoomStartTime,
+    zoomEndTime,
+  ]);
 
   const handleMouseDown = useCallback((e: any) => {
     if (!e || !e.activeLabel) return;
@@ -397,16 +478,37 @@ const LogViewer: React.FC = () => {
 
   const handleMouseUp = useCallback(() => {
     if (dragStartX !== null && dragEndX !== null && dragStartX !== dragEndX) {
-      // Map displayedData indices to chartData indices
-      const startIdx = getChartDataIndex(Math.min(dragStartX, dragEndX));
-      const endIdx = getChartDataIndex(Math.max(dragStartX, dragEndX));
-      setZoomRange({ start: startIdx, end: endIdx });
+      // Use actual timestamps (ms) for zoom range instead of indices
+      const startIdx = Math.min(dragStartX, dragEndX);
+      const endIdx = Math.max(dragStartX, dragEndX);
+      const startTimeStr = chartData[startIdx]?.fullTime
+        ? chartData[startIdx].fullTime
+        : null;
+      const endTimeStr = chartData[endIdx]?.fullTime
+        ? chartData[endIdx].fullTime
+        : null;
+
+      if (startTimeStr !== null && endTimeStr !== null) {
+        const startMs = new Date(startTimeStr).getTime();
+        const endMs = new Date(endTimeStr).getTime();
+        if (!isNaN(startMs) && !isNaN(endMs) && startMs < endMs) {
+          // === NEW: do local zooming only (no dateRange change, no fetch) ===
+          // Filter logs to the zoom window:
+          const zoomed = logs.filter((log) => {
+            const t = new Date(log.timestamp).getTime();
+            return t >= startMs && t <= endMs + getZoomInterval(startMs, endMs);
+          });
+
+          setFilteredLogs(zoomed);
+          setIsZoomed(true);
+          setZoomStartTime(startMs);
+          setZoomEndTime(endMs);
+        }
+      }
     }
     setDragStartX(null);
     setDragEndX(null);
-  }, [dragStartX, dragEndX, zoomRange]);
-
-  const handleResetZoom = () => setZoomRange(null);
+  }, [dragStartX, dragEndX, chartData, logs]);
 
   const openLogDrawer = (log: LogEntryType) => {
     setSelectedLog(log);
@@ -460,6 +562,8 @@ const LogViewer: React.FC = () => {
     level: string;
     service: string;
   }) => {
+    // When applying a new filter we won't automatically clear zoom.
+    // The server fetch will update `logs`, but we only replace `filteredLogs` if not zoomed (see fetchLogs).
     const dateValues = getDateRangeValues();
 
     const combinedFilters = {
@@ -484,6 +588,11 @@ const LogViewer: React.FC = () => {
     const newDateRange = e.target.value;
     setDateRange(newDateRange);
     setShowCustomDate(newDateRange === 'custom');
+
+    // Changing date range should clear any active zoom
+    setIsZoomed(false);
+    setZoomStartTime(null);
+    setZoomEndTime(null);
 
     if (newDateRange === 'custom' && (!customStartDate || !customEndDate)) {
       const now = dayjs();
@@ -552,6 +661,11 @@ const LogViewer: React.FC = () => {
   };
 
   const handleCustomDateChange = () => {
+    // Changing custom date should clear zoom since it's a new requested time window
+    setIsZoomed(false);
+    setZoomStartTime(null);
+    setZoomEndTime(null);
+
     if (dateRange === 'custom' && customStartDate && customEndDate) {
       const start = dayjs(customStartDate);
       const end = dayjs(customEndDate);
@@ -628,20 +742,14 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  const zoomedTimeRange = zoomRange
-    ? {
-        start: chartData[Math.min(zoomRange.start, zoomRange.end)]?.fullTime,
-        end: chartData[Math.max(zoomRange.start, zoomRange.end)]?.fullTime,
-      }
-    : null;
-
-  const displayedLogs = zoomedTimeRange
-    ? filteredLogs.filter(
-        (log) =>
-          log.timestamp >= zoomedTimeRange.start &&
-          log.timestamp <= zoomedTimeRange.end,
-      )
-    : filteredLogs;
+  // === NEW: reset zoom function ===
+  const resetZoom = () => {
+    setIsZoomed(false);
+    setZoomStartTime(null);
+    setZoomEndTime(null);
+    // restore filteredLogs to the latest server-provided set (logs)
+    setFilteredLogs(logs);
+  };
 
   return (
     <div className="flex h-screen flex-col bg-[#151515] font-sans text-white">
@@ -790,37 +898,34 @@ const LogViewer: React.FC = () => {
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-x-1 text-xs">
+            <Switch
               id="autoScroll"
               checked={autoScroll}
-              onChange={() => setAutoScroll(!autoScroll)}
-              className="mr-1 h-3 w-3"
+              onCheckedChange={(checked) => setAutoScroll(checked)}
+              className="bg-gray-600! aria-checked:bg-[#13ba00]!"
             />
             <label htmlFor="autoScroll" className="text-gray-300">
               Auto-scroll
             </label>
           </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-x-1 text-xs">
+            <Switch
               id="polling"
               checked={isPolling}
-              onChange={() => setIsPolling(!isPolling)}
-              className="mr-1 h-3 w-3"
+              onCheckedChange={(checked) => setIsPolling(checked)}
+              className="bg-gray-600! aria-checked:bg-[#13ba00]!"
             />
             <label htmlFor="polling" className="text-gray-300">
               Auto-refresh
             </label>
           </div>
-          <div className="flex items-center text-xs">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-x-1 text-xs">
+            <Switch
               id="showGraph"
               checked={showGraph}
-              onChange={() => setShowGraph(!showGraph)}
-              className="mr-1 h-3 w-3"
+              onCheckedChange={(checked) => setShowGraph(checked)}
+              className="bg-gray-600! aria-checked:bg-[#13ba00]!"
             />
             <label htmlFor="showGraph" className="text-gray-300">
               Show Graph
@@ -837,21 +942,22 @@ const LogViewer: React.FC = () => {
 
       {showGraph && (
         <div className="border-b border-[#333333] bg-[#151515] p-2">
-          <div className="mb-1 flex justify-between text-xs text-gray-400">
-            Log Volume
-            {zoomRange && (
+          <div className="mb-2 flex h-6 justify-between text-xs text-gray-400">
+            <span>Log Volume</span>
+            {/* NEW: Reset Zoom button shown when zoomed */}
+            {isZoomed && (
               <button
-                className="ml-2 rounded bg-[#333333] px-2 py-1 text-xs text-gray-300 hover:bg-[#444444]"
-                onClick={handleResetZoom}
+                onClick={resetZoom}
+                className="rounded border border-[#333333] bg-[#222222] px-2 py-0.5 text-xs text-gray-200 hover:bg-[#2a2a2a]"
               >
                 Reset Zoom
               </button>
             )}
           </div>
-          <div className="h-48 overflow-hidden">
+          <div className="h-48 overflow-hidden select-none">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={displayedData}
+                data={chartData}
                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -888,8 +994,8 @@ const LogViewer: React.FC = () => {
                 />
                 {dragStartX !== null && dragEndX !== null && (
                   <ReferenceArea
-                    x1={displayedData[Math.min(dragStartX, dragEndX)]?.time}
-                    x2={displayedData[Math.max(dragStartX, dragEndX)]?.time}
+                    x1={chartData[Math.min(dragStartX, dragEndX)]?.time}
+                    x2={chartData[Math.max(dragStartX, dragEndX)]?.time}
                     stroke={NEW_RELIC_GREEN}
                     fill="rgba(34,197,94,0.15)"
                     ifOverflow="visible"
@@ -911,19 +1017,18 @@ const LogViewer: React.FC = () => {
       <div className="flex flex-wrap gap-2 border-b border-[#333333] bg-[#151515] p-2">
         <div className="text-xs text-gray-400">Columns:</div>
         {availableColumns.map((column) => (
-          <div key={column} className="flex items-center text-xs">
-            <input
-              type="checkbox"
+          <div key={column} className="flex items-center gap-x-1 text-xs">
+            <Switch
               id={`col-${column}`}
               checked={selectedColumns.includes(column)}
-              onChange={() => {
+              onCheckedChange={() => {
                 setSelectedColumns((prev) =>
                   prev.includes(column)
                     ? prev.filter((c) => c !== column)
                     : [...prev, column],
                 );
               }}
-              className="mr-1 h-3 w-3"
+              className="bg-gray-600! aria-checked:bg-[#13ba00]!"
             />
             <label htmlFor={`col-${column}`} className="text-gray-300">
               {column}
@@ -933,7 +1038,7 @@ const LogViewer: React.FC = () => {
       </div>
 
       <div className="flex-grow overflow-auto">
-        {displayedLogs.length === 0 ? (
+        {filteredLogs.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-500">
             <p className="text-sm">No logs to display.</p>
           </div>
@@ -965,7 +1070,7 @@ const LogViewer: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {displayedLogs.map((log) => {
+              {filteredLogs.map((log) => {
                 const formatTimestamp = (timestamp: string) => {
                   try {
                     const date = new Date(timestamp);
@@ -1054,7 +1159,7 @@ const LogViewer: React.FC = () => {
 
       <footer className="border-t border-[#333333] bg-[#151515] p-2 text-center text-xs text-gray-500">
         <p>
-          Displaying {displayedLogs.length} of {logs.length} logs
+          Displaying {filteredLogs.length} of {total} logs
         </p>
       </footer>
 
@@ -1221,43 +1326,45 @@ const LogViewer: React.FC = () => {
                             !['id', 'timestamp', 'message'].includes(key),
                         ),
                       ),
-                ).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="group flex items-start justify-between"
-                  >
-                    <div className="flex-grow overflow-hidden">
-                      <span className="text-xs" style={{ color: '#01b9de' }}>
-                        {key}:{' '}
-                      </span>
-                      <span className="ml-2 text-xs break-all whitespace-pre-wrap text-green-400">
-                        {typeof value === 'object' && value !== null
-                          ? JSON.stringify(value)
-                          : String(value)}
-                      </span>
+                )
+                  .sort()
+                  .map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="group flex items-start justify-between"
+                    >
+                      <div className="flex-grow overflow-hidden">
+                        <span className="text-xs" style={{ color: '#01b9de' }}>
+                          {key}:{' '}
+                        </span>
+                        <span className="ml-2 text-xs break-all whitespace-pre-wrap text-green-400">
+                          {typeof value === 'object' && value !== null
+                            ? JSON.stringify(value, null, 2)
+                            : String(value)}
+                        </span>
+                      </div>
+                      <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={() => copyToClipboard(key, value)}
+                          className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
+                          title="Copy value"
+                        >
+                          {copiedKey === key ? (
+                            <Check size={14} className="text-green-500" />
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => addFilterFromDrawer(key, value)}
+                          className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
+                          title={`Filter by ${key}`}
+                        >
+                          <FilterIcon size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
-                      <button
-                        onClick={() => copyToClipboard(key, value)}
-                        className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
-                        title="Copy value"
-                      >
-                        {copiedKey === key ? (
-                          <Check size={14} className="text-green-500" />
-                        ) : (
-                          <Copy size={14} />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => addFilterFromDrawer(key, value)}
-                        className="rounded p-1 text-gray-400 hover:bg-[#333333] hover:text-white"
-                        title={`Filter by ${key}`}
-                      >
-                        <FilterIcon size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </>
