@@ -24,3 +24,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Custom dark scrollbar styles */
+::-webkit-scrollbar {
+  width: 10px;
+  background: #181818;
+}
+::-webkit-scrollbar-thumb {
+  background: #232323;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+/* Firefox */
+html {
+  scrollbar-color: #232323 #181818;
+  scrollbar-width: thin;
+}
