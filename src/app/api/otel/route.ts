@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate') || '';
     const limit = parseInt(searchParams.get('limit') || '1000');
     const offset = parseInt(searchParams.get('offset') || '0');
+    const bucketMinutes = parseFloat(searchParams.get('bucketMinutes') || '1');
+    const bucketsOnly = searchParams.get('bucketsOnly') === 'true';
 
     // Build filters object
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,21 +87,36 @@ export async function GET(request: NextRequest) {
     if (endDate) filters.endDate = endDate;
     if (limit) filters.limit = limit;
     if (offset) filters.offset = offset;
+    if (bucketMinutes) filters.bucketMinutes = bucketMinutes;
 
     // Get logs from database
-    const logs = databaseService.getLogs(filters);
+    const logsWithBuuckets = databaseService.getLogsWithBuckets(filters);
+    const logs = logsWithBuuckets.logs;
+    const buckets = logsWithBuuckets.buckets;
     const totalCount = databaseService.getLogCount(filters);
 
     // Get unique levels and services for filter options
     const levels = databaseService.getLevels();
     const services = databaseService.getServices();
 
+    // Return only buckets if bucketsOnly is true
+    if (bucketsOnly) {
+      return NextResponse.json(
+        {
+          success: true,
+          buckets,
+        },
+        { status: 200 },
+      );
+    }
+
     return NextResponse.json(
       {
         success: true,
         count: logs.length,
         totalCount: totalCount,
-        logs: logs,
+        logs,
+        buckets,
         levels: levels,
         services: services,
       },

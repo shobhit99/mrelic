@@ -27,27 +27,11 @@ import { Switch } from './ui/switch';
 const NEW_RELIC_GREEN = '#22c55e'; // A nice green similar to New Relic's
 const NEW_RELIC_GREEN_DARK = '#16a34a';
 
-function getZoomInterval(startTime: number, endTime: number) {
-  const totalMs = endTime - startTime;
-  let newIntervalMs = Math.ceil(totalMs / 100); // aim for ~100 buckets
 
-  // Snap to nice boundaries
-  if (newIntervalMs <= 5000) newIntervalMs = 5000;
-  else if (newIntervalMs <= 10000) newIntervalMs = 10000;
-  else if (newIntervalMs <= 15000) newIntervalMs = 15000;
-  else if (newIntervalMs <= 30000) newIntervalMs = 30000;
-  else if (newIntervalMs <= 60000) newIntervalMs = 60000;
-  else if (newIntervalMs <= 300000) newIntervalMs = 300000;
-  else if (newIntervalMs <= 900000) newIntervalMs = 900000;
-  else if (newIntervalMs <= 3600000) newIntervalMs = 3600000;
-  else if (newIntervalMs <= 21600000) newIntervalMs = 21600000;
-  else newIntervalMs = 86400000;
-
-  return newIntervalMs;
-}
 
 const LogViewer: React.FC = () => {
   const [logs, setLogs] = useState<LogEntryType[]>([]);
+  const [buckets, setBuckets] = useState<{ bucket: string; count: number }[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [filteredLogs, setFilteredLogs] = useState<LogEntryType[]>([]);
   const [dbSize, setDbSize] = useState<number>(0);
@@ -222,6 +206,10 @@ const LogViewer: React.FC = () => {
       if (searchFilters?.endDate)
         params.append('endDate', searchFilters.endDate);
 
+      // Add bucket size parameter based on date range
+      const bucketSize = getBucketSizeFromDateRange(searchFilters?.dateRange || dateRange);
+      params.append('bucketMinutes', bucketSize.toString());
+
       const url = `/api/otel${
         params.toString() ? '?' + params.toString() : ''
       }`;
@@ -237,11 +225,10 @@ const LogViewer: React.FC = () => {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
         );
         setLogs(sortedLogs);
+        setBuckets(data.buckets || []);
 
-        // === NEW: only overwrite filteredLogs if NOT zoomed ===
-        if (!isZoomed) {
-          setFilteredLogs(sortedLogs);
-        }
+        // Always update filteredLogs when fetching new data (zoom is handled separately)
+        setFilteredLogs(sortedLogs);
 
         if (data.levels) setLevels(data.levels);
         if (data.services) setServices(data.services);
@@ -296,12 +283,28 @@ const LogViewer: React.FC = () => {
 
     if (isPolling) {
       pollingIntervalRef.current = setInterval(() => {
-        const currentDateValues = getDateRangeValues();
-        const currentFilters = {
-          ...filters,
-          ...currentDateValues,
-        };
-        fetchLogs(currentFilters);
+        if (isZoomed && zoomStartTime !== null && zoomEndTime !== null) {
+          // If zoomed, fetch only buckets for the zoomed range
+          const zoomedFilters = {
+            ...filters,
+            startDate: new Date(zoomStartTime).toISOString(),
+            endDate: new Date(zoomEndTime).toISOString(),
+          };
+          
+          // Calculate appropriate bucket size for zoomed range
+          const timeSpan = zoomEndTime - zoomStartTime;
+          const bucketSize = getBucketSizeForTimeSpan(timeSpan);
+          
+          fetchBucketsForZoom(zoomedFilters, bucketSize);
+        } else {
+          // If not zoomed, fetch data for the current date range
+          const currentDateValues = getDateRangeValues();
+          const currentFilters = {
+            ...filters,
+            ...currentDateValues,
+          };
+          fetchLogs(currentFilters);
+        }
       }, 3000);
     }
 
@@ -310,7 +313,7 @@ const LogViewer: React.FC = () => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [isPolling, filters, getDateRangeValues]);
+  }, [isPolling, filters, getDateRangeValues, isZoomed, zoomStartTime, zoomEndTime]);
 
   useEffect(() => {
     if (autoScroll && logsEndRef.current) {
@@ -320,146 +323,183 @@ const LogViewer: React.FC = () => {
 
   // Generate chart data (moved logic to handle zoom vs normal)
   useEffect(() => {
-    const logsToGraph = filteredLogs.length > 0 ? filteredLogs : [];
-    if (logsToGraph.length === 0) {
+    if (!buckets || buckets.length === 0) {
       setChartData([]);
       return;
     }
 
-    let intervalMs = 60000;
-    let startTime = NaN;
-    let endTime = NaN;
-
-    if (isZoomed && zoomStartTime !== null && zoomEndTime !== null) {
-      // Use zoom window (ms)
-      startTime = zoomStartTime;
-      endTime = zoomEndTime;
-
-      intervalMs = getZoomInterval(startTime, endTime);
-    } else {
-      // Normal (non-zoom) chart building — use dateRange presets
-      switch (dateRange) {
-        case '15m':
-        case '30m':
-          intervalMs = 60000;
-          break;
-        case '1h':
-          intervalMs = 300000;
-          break;
-        case '4h':
-          intervalMs = 900000;
-          break;
-        case '24h':
-          intervalMs = 3600000;
-          break;
-        case '7d':
-          intervalMs = 21600000;
-          break;
-        case '30d':
-          intervalMs = 86400000;
-          break;
-        default:
-          intervalMs = 60000;
+    // Use the server-provided buckets directly
+    const data = buckets.map((bucket) => {
+      const date = new Date(bucket.bucket);
+      let formattedTime;
+      
+      // Determine interval based on bucket spacing
+      const bucketCount = buckets.length;
+      let timeSpan: number;
+      
+      if (isZoomed && zoomStartTime !== null && zoomEndTime !== null) {
+        // Use zoom time span
+        timeSpan = zoomEndTime - zoomStartTime;
+      } else {
+        // Use date range time span
+        timeSpan = dateRange === 'custom' 
+          ? (customEndDate && customStartDate 
+              ? new Date(customEndDate).getTime() - new Date(customStartDate).getTime()
+              : 15 * 60 * 1000) // 15 minutes default
+          : getTimeSpanFromDateRange(dateRange);
       }
-
-      const dateValues = getDateRangeValues();
-      if (!dateValues.startDate || !dateValues.endDate) {
-        setChartData([]);
-        return;
+      
+      const avgIntervalMs = timeSpan / bucketCount;
+      
+      // Format based on interval size
+      if (avgIntervalMs >= 86400000) { // 24 hours or more
+        formattedTime = date.toLocaleDateString();
+      } else if (avgIntervalMs >= 3600000) { // 1 hour or more
+        formattedTime = date.toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } else if (avgIntervalMs >= 60000) { // 1 minute or more
+        formattedTime = date.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } else if (avgIntervalMs >= 1000) { // 1 second or more
+        formattedTime = date.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+      } else { // Less than 1 second
+        formattedTime = date.toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          fractionalSecondDigits: 3,
+        });
       }
-      startTime = new Date(dateValues.startDate).getTime();
-      endTime = new Date(dateValues.endDate).getTime();
-      if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
-        setChartData([]);
-        return;
-      }
-    }
-
-    // Ensure startTime and endTime are valid
-    if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
-      setChartData([]);
-      return;
-    }
-
-    const timeIntervals: Record<number, number> = {};
-
-    let lastBucketTime = startTime;
-    for (let time = startTime; time <= endTime; time += intervalMs) {
-      if (!isNaN(time)) {
-        timeIntervals[time] = 0;
-        lastBucketTime = time;
-      }
-      // safety: prevent infinite loop for bad intervalMs
-      if (intervalMs <= 0) break;
-    }
-
-    logsToGraph.forEach((log) => {
-      const logTime = new Date(log.timestamp).getTime();
-      if (
-        !isNaN(logTime) &&
-        logTime >= startTime &&
-        logTime <= endTime + intervalMs
-      ) {
-        let bucketTime =
-          Math.floor((logTime - startTime) / intervalMs) * intervalMs +
-          startTime;
-
-        if (bucketTime < startTime) {
-          bucketTime = startTime;
-        }
-
-        if (logTime >= endTime) {
-          bucketTime = lastBucketTime;
-        }
-
-        if (!isNaN(bucketTime) && timeIntervals[bucketTime] !== undefined) {
-          timeIntervals[bucketTime]++;
-        }
-      }
+      
+      return {
+        time: formattedTime,
+        count: bucket.count,
+        fullTime: bucket.bucket,
+        timestamp: date.getTime(),
+      };
     });
-
-    const data = Object.keys(timeIntervals)
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-      .map((time) => {
-        const date = new Date(+time);
-        let formattedTime;
-        if (intervalMs >= 86400000) {
-          formattedTime = date.toLocaleDateString();
-        } else if (intervalMs >= 3600000) {
-          formattedTime = date.toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-        } else if (intervalMs >= 60000) {
-          formattedTime = date.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-        } else {
-          formattedTime = date.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          });
-        }
-        return {
-          time: formattedTime,
-          count: timeIntervals[date.getTime()] || 0,
-          fullTime: date.toISOString(),
-        };
-      });
+    
     setChartData(data);
-  }, [
-    filteredLogs,
-    dateRange,
-    customStartDate,
-    customEndDate,
-    isZoomed,
-    zoomStartTime,
-    zoomEndTime,
-  ]);
+  }, [buckets, dateRange, customStartDate, customEndDate, isZoomed, zoomStartTime, zoomEndTime]);
+
+  // Helper function to get time span from date range
+  const getTimeSpanFromDateRange = (range: string): number => {
+    const now = Date.now();
+    switch (range) {
+      case '15m':
+        return 15 * 60 * 1000;
+      case '30m':
+        return 30 * 60 * 1000;
+      case '1h':
+        return 60 * 60 * 1000;
+      case '4h':
+        return 4 * 60 * 60 * 1000;
+      case '24h':
+        return 24 * 60 * 60 * 1000;
+      case '7d':
+        return 7 * 24 * 60 * 60 * 1000;
+      case '30d':
+        return 30 * 24 * 60 * 60 * 1000;
+      default:
+        return 15 * 60 * 1000;
+    }
+  };
+
+  // Helper function to get bucket size from date range
+  const getBucketSizeFromDateRange = (range: string): number => {
+    switch (range) {
+      case '15m':
+      case '30m':
+        return 1; // 1 minute buckets
+      case '1h':
+        return 5; // 5 minute buckets
+      case '4h':
+        return 15; // 15 minute buckets
+      case '24h':
+        return 60; // 1 hour buckets
+      case '7d':
+        return 360; // 6 hour buckets
+      case '30d':
+        return 1440; // 1 day buckets
+      default:
+        return 1; // 1 minute buckets
+    }
+  };
+
+  // Helper function to get bucket size for a time span (for zooming)
+  const getBucketSizeForTimeSpan = (timeSpanMs: number): number => {
+    const timeSpanMinutes = timeSpanMs / (60 * 1000);
+    const timeSpanSeconds = timeSpanMs / 1000;
+    
+    // Very short spans (< 5 minutes): use sub-minute buckets
+    if (timeSpanSeconds <= 30) {
+      return 0.5; // 30 second buckets
+    } else if (timeSpanSeconds <= 60) {
+      return 0.25; // 15 second buckets
+    } else if (timeSpanSeconds <= 120) {
+      return 0.167; // 10 second buckets
+    } else if (timeSpanSeconds <= 300) {
+      return 0.083; // 5 second buckets
+    } else if (timeSpanMinutes <= 5) {
+      return 0.017; // 1 second buckets
+    } else if (timeSpanMinutes <= 30) {
+      // 5-30 minute spans: 1 minute buckets
+      return 1;
+    } else if (timeSpanMinutes <= 120) {
+      // Medium spans: target ~60 buckets
+      return Math.max(1, Math.ceil(timeSpanMinutes / 60));
+    } else if (timeSpanMinutes <= 480) {
+      // Longer spans: target ~80 buckets
+      return Math.max(1, Math.ceil(timeSpanMinutes / 80));
+    } else {
+      // Long spans: target ~100 buckets
+      return Math.max(1, Math.ceil(timeSpanMinutes / 100));
+    }
+  };
+
+  // Function to fetch buckets for zoomed range
+  const fetchBucketsForZoom = async (zoomFilters: {
+    search?: string;
+    level?: string;
+    service?: string;
+    startDate?: string;
+    endDate?: string;
+  }, bucketSize: number) => {
+    try {
+      const params = new URLSearchParams();
+      if (zoomFilters.search) params.append('query', zoomFilters.search);
+      if (zoomFilters.level) params.append('level', zoomFilters.level);
+      if (zoomFilters.service) params.append('service', zoomFilters.service);
+      if (zoomFilters.startDate) params.append('startDate', zoomFilters.startDate);
+      if (zoomFilters.endDate) params.append('endDate', zoomFilters.endDate);
+      params.append('bucketMinutes', bucketSize.toString());
+      params.append('bucketsOnly', 'true');
+
+      const url = `/api/otel${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch zoomed buckets');
+      }
+
+      const data = await response.json();
+      if (data.success && data.buckets) {
+        setBuckets(data.buckets);
+      }
+    } catch (error) {
+      console.error('Error fetching zoomed buckets:', error);
+    }
+  };
 
   const handleMouseDown = useCallback((e: any) => {
     if (!e || !e.activeLabel) return;
@@ -492,23 +532,37 @@ const LogViewer: React.FC = () => {
         const startMs = new Date(startTimeStr).getTime();
         const endMs = new Date(endTimeStr).getTime();
         if (!isNaN(startMs) && !isNaN(endMs) && startMs < endMs) {
-          // === NEW: do local zooming only (no dateRange change, no fetch) ===
           // Filter logs to the zoom window:
           const zoomed = logs.filter((log) => {
             const t = new Date(log.timestamp).getTime();
-            return t >= startMs && t <= endMs + getZoomInterval(startMs, endMs);
+            return t >= startMs && t <= endMs;
           });
 
           setFilteredLogs(zoomed);
           setIsZoomed(true);
           setZoomStartTime(startMs);
           setZoomEndTime(endMs);
+
+          // Fetch new chart data for the zoomed range
+          const zoomedFilters = {
+            search: filters.search,
+            level: filters.level,
+            service: filters.service,
+            startDate: new Date(startMs).toISOString(),
+            endDate: new Date(endMs).toISOString(),
+          };
+          
+          // Calculate appropriate bucket size for zoomed range
+          const timeSpan = endMs - startMs;
+          const bucketSize = getBucketSizeForTimeSpan(timeSpan);
+          
+          fetchBucketsForZoom(zoomedFilters, bucketSize);
         }
       }
     }
     setDragStartX(null);
     setDragEndX(null);
-  }, [dragStartX, dragEndX, chartData, logs]);
+  }, [dragStartX, dragEndX, chartData, logs, filters]);
 
   const openLogDrawer = (log: LogEntryType) => {
     setSelectedLog(log);
@@ -562,8 +616,11 @@ const LogViewer: React.FC = () => {
     level: string;
     service: string;
   }) => {
-    // When applying a new filter we won't automatically clear zoom.
-    // The server fetch will update `logs`, but we only replace `filteredLogs` if not zoomed (see fetchLogs).
+    // When applying a new filter, clear zoom to show the full filtered dataset
+    setIsZoomed(false);
+    setZoomStartTime(null);
+    setZoomEndTime(null);
+    
     const dateValues = getDateRangeValues();
 
     const combinedFilters = {
@@ -593,6 +650,7 @@ const LogViewer: React.FC = () => {
     setIsZoomed(false);
     setZoomStartTime(null);
     setZoomEndTime(null);
+    setFilteredLogs(logs); // Reset filtered logs to full set
 
     if (newDateRange === 'custom' && (!customStartDate || !customEndDate)) {
       const now = dayjs();
@@ -665,6 +723,7 @@ const LogViewer: React.FC = () => {
     setIsZoomed(false);
     setZoomStartTime(null);
     setZoomEndTime(null);
+    setFilteredLogs(logs); // Reset filtered logs to full set
 
     if (dateRange === 'custom' && customStartDate && customEndDate) {
       const start = dayjs(customStartDate);
@@ -742,13 +801,24 @@ const LogViewer: React.FC = () => {
     }
   };
 
-  // === NEW: reset zoom function ===
+  // Reset zoom function
   const resetZoom = () => {
     setIsZoomed(false);
     setZoomStartTime(null);
     setZoomEndTime(null);
     // restore filteredLogs to the latest server-provided set (logs)
     setFilteredLogs(logs);
+    
+    // Fetch original chart data
+    const dateValues = getDateRangeValues();
+    const currentFilters = {
+      search: filters.search,
+      level: filters.level,
+      service: filters.service,
+      dateRange,
+      ...dateValues,
+    };
+    fetchLogs(currentFilters);
   };
 
   return (

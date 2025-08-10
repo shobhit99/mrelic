@@ -253,6 +253,161 @@ class DatabaseService {
     return logs;
   }
 
+  getLogsWithBuckets(filters: {
+    query?: string;
+    level?: string;
+    service?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    bucketMinutes?: number; // e.g. 1, 5, 60, or fractional like 0.5 for 30 seconds
+  }): { logs: any[]; buckets: { bucket: string; count: number }[] } {
+    const bucketSize = filters.bucketMinutes || 1; // minutes
+    
+
+
+    // --- Build WHERE conditions ---
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filters.level) {
+      conditions.push('level = ?');
+      params.push(filters.level);
+    }
+    if (filters.service) {
+      conditions.push('service = ?');
+      params.push(filters.service);
+    }
+    if (filters.startDate) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.startDate);
+    }
+    if (filters.endDate) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.endDate);
+    }
+    if (filters.query && !this.isAdvancedQuery(filters.query)) {
+      const q = `%${filters.query}%`;
+      conditions.push(`(
+      message LIKE ? OR 
+      service LIKE ? OR 
+      level LIKE ? OR
+      data LIKE ?
+    )`);
+      params.push(q, q, q, q);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // --- 1) Main logs query ---
+    let logsSql = `
+    SELECT * FROM logs
+    ${whereClause}
+    ORDER BY timestamp DESC
+  `;
+    if (filters.limit) {
+      logsSql += ` LIMIT ${filters.limit}`;
+    }
+    const logsStmt = db.prepare(logsSql);
+    const logs = logsStmt.all(...params);
+
+    // --- 2) Bucket counts query ---
+    let bucketExpr: string;
+    let bucketSql: string;
+    
+    if (bucketSize < 1) {
+      // For sub-minute buckets, use seconds
+      const bucketSeconds = Math.round(bucketSize * 60);
+      bucketSql = `
+      SELECT strftime('%Y-%m-%dT%H:%M:%SZ',
+        datetime(
+          (strftime('%s', timestamp) / ${bucketSeconds}) * ${bucketSeconds},
+          'unixepoch'
+        )
+      ) AS bucket,
+             COUNT(*) AS count
+      FROM logs
+      ${whereClause}
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `;
+    } else {
+      // For minute-based buckets, use minutes
+      bucketSql = `
+      SELECT strftime('%Y-%m-%dT%H:%M:00Z',
+        datetime(
+          (strftime('%s', timestamp) / (? * 60)) * (? * 60),
+          'unixepoch'
+        )
+      ) AS bucket,
+             COUNT(*) AS count
+      FROM logs
+      ${whereClause}
+      GROUP BY bucket
+      ORDER BY bucket ASC
+    `;
+    }
+
+    let bucketParams: any[];
+    if (bucketSize < 1) {
+      // For sub-minute buckets, no additional parameters needed
+      bucketParams = [...params];
+    } else {
+      // For minute-based buckets, include bucket size parameters
+      bucketParams = [bucketSize, bucketSize, ...params];
+    }
+    const bucketStmt = db.prepare(bucketSql);
+    let rawBuckets: any[] = bucketStmt.all(...bucketParams);
+
+    // --- 3) Zero-fill + Future buckets ---
+    const filledBuckets: { bucket: string; count: number }[] = [];
+    if (rawBuckets.length > 0) {
+            const msStep = bucketSize < 1 
+        ? bucketSize * 60 * 1000 // Use exact calculation for sub-minute buckets
+        : bucketSize * 60 * 1000; // Minutes to milliseconds
+      
+      // Start from the requested start time, not the first log timestamp
+      let currentTime = filters.startDate 
+        ? new Date(filters.startDate).getTime()
+        : new Date(rawBuckets[0].bucket).getTime();
+      
+      // If endDate provided, stop at that, else up to "now"
+      const endTime = filters.endDate
+        ? new Date(filters.endDate).getTime()
+        : Date.now();
+
+      const bucketMap = new Map(rawBuckets.map((b) => [b.bucket, b.count]));
+
+      while (currentTime <= endTime) {
+        let bucketStr: string;
+        if (bucketSize < 1) {
+          // For sub-minute buckets, match the format from the database (no milliseconds)
+          bucketStr = new Date(currentTime)
+            .toISOString()
+            .replace(/\.\d{3}Z$/, 'Z');
+        } else {
+          // For minute-based buckets, round to minute boundaries
+          bucketStr = new Date(currentTime)
+            .toISOString()
+            .replace(/\.\d{3}Z$/, 'Z');
+        }
+        filledBuckets.push({
+          bucket: bucketStr,
+          count: bucketMap.get(bucketStr) || 0,
+        });
+        currentTime += msStep;
+      }
+    }
+
+    // For sub-minute buckets, return raw buckets to avoid alignment issues
+    if (bucketSize < 1) {
+      return { logs, buckets: rawBuckets };
+    }
+    
+    return { logs, buckets: filledBuckets };
+  }
+
   // Get unique levels
   getLevels(): string[] {
     const stmt = db.prepare(
